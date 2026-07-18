@@ -243,17 +243,23 @@ function iosTick(){
   _lastTick=now;
   try{ const h=document.getElementById('hapticTick'); if(h) h.click(); }catch(e){}
 }
+/* native bridge: when this page runs inside a WKWebView (Ultrahuman app or an
+   App Clip) that registers a "uhHaptics" script message handler, every haptic
+   routes to CoreHaptics for the real SphereHaptics grain. The web fallbacks
+   below only apply outside the app. */
+const hapticBridge=(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.uhHaptics)||null;
 const canVibrate=!!navigator.vibrate;
 const buzz = p => {
+  if(hapticBridge){ try{ hapticBridge.postMessage(Array.isArray(p)?p:[p]); }catch(e){} return; }
   if(canVibrate){ try{ navigator.vibrate(p); }catch(e){} return; }
   if(Array.isArray(p)){ iosTick(); setTimeout(iosTick,80); setTimeout(iosTick,170); }
   else iosTick();
 };
 /* the app's SphereHaptics tiers, translated: micro grain / grab / deep page
-   thud / soft settle. iOS has one fixed tick, so "deep" reads as a fast double */
+   thud / soft settle. Safari has one fixed tap tick, so "deep" reads as a fast double */
 const hapMicro=()=>buzz(3);
 const hapGrab=()=>buzz(6);
-const hapThud=()=>{ if(canVibrate) buzz(12); else { iosTick(); setTimeout(iosTick,55); } };
+const hapThud=()=>{ if(hapticBridge||canVibrate) buzz(12); else { iosTick(); setTimeout(iosTick,55); } };
 const hapSettle=()=>buzz(7);
 
 /* ============================================================

@@ -211,6 +211,10 @@
     <div class="note" id="shareNote"></div>
   </section>
 
+  <label id="hapticTick" aria-hidden="true"
+    style="position:fixed;left:-99px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;"><input
+    type="checkbox" switch tabindex="-1"></label>
+
   <div id="carousel" aria-hidden="true"></div>
   <div id="dragSurface" tabindex="0" role="group"
     aria-label="Insight carousel. Use the left and right arrow keys to turn the UltraSphere."></div>
@@ -228,7 +232,22 @@ const el = id => document.getElementById(id);
 const reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 const lerp = (a,b,t) => a + (b-a)*t;
-const buzz = p => { try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} };
+/* haptics: navigator.vibrate on Android; iOS Safari (17.4+) only ticks when a
+   switch control toggles, so buzz falls back to clicking a hidden one,
+   throttled so the rolling micro-ticks read as texture rather than noise */
+let _lastTick=0;
+function iosTick(){
+  const now=performance.now();
+  if(now-_lastTick<30) return;
+  _lastTick=now;
+  try{ const h=document.getElementById('hapticTick'); if(h) h.click(); }catch(e){}
+}
+const canVibrate=!!navigator.vibrate;
+const buzz = p => {
+  if(canVibrate){ try{ navigator.vibrate(p); }catch(e){} return; }
+  if(Array.isArray(p)){ iosTick(); setTimeout(iosTick,90); }
+  else iosTick();
+};
 
 /* ============================================================
    SHADERS

@@ -1230,7 +1230,7 @@ async function storyBlob(){
     document.fonts.load('500 22px "JetBrains Mono"'),
     document.fonts.load('300 30px Geist'),
     document.fonts.load('400 58px Geist'),
-    document.fonts.load('italic 400 72px "Instrument Serif"'),
+    document.fonts.load('italic 400 48px "Instrument Serif"'),
   ]).catch(()=>{});
   return composeStory(deck[driver?driver.centered():0]);
 }
@@ -1291,26 +1291,29 @@ function composeStory(card){
     spaced(t+'…',y,x.font,col,1);
   };
 
+  /* the Ultrahuman Emerald lockup, same as the page chrome */
   const logo=el('uhLogo');
   if(logo&&logo.complete&&logo.naturalWidth){
-    const lw=250, lh=lw*logo.naturalHeight/logo.naturalWidth;
-    x.globalAlpha=.9; x.drawImage(logo, mid-lw/2, cy+64, lw, lh); x.globalAlpha=1;
+    const lw=230, lh=lw*logo.naturalHeight/logo.naturalWidth;
+    x.globalAlpha=.92; x.drawImage(logo, mid-lw/2, cy+56, lw, lh); x.globalAlpha=1;
   } else {
-    spaced('A NEW ULTRAHUMAN EXPERIENCE', cy+96, '500 22px "JetBrains Mono"', 'rgba(255,255,255,.55)', 5);
+    spaced('ULTRAHUMAN', cy+76, '500 24px "JetBrains Mono"', 'rgba(255,255,255,.85)', 6);
   }
+  x.font='italic 400 48px "Instrument Serif"'; x.fillStyle='rgba(255,255,255,.92)';
+  x.fillText('Emerald', mid, cy+134);
 
   /* the sphere */
-  const D=230, oy=cy+150;
+  const D=220, oy=cy+164;
   if(orbCtx){ try{ x.drawImage(el('orb'), mid-D/2, oy, D, D); }catch(e){} }
 
   /* tag */
-  spacedFit(card.tag.toUpperCase(), oy+D+76, 24, 'rgba(123,216,219,.9)', 7, 700);
+  spacedFit(card.tag.toUpperCase(), oy+D+70, 24, 'rgba(123,216,219,.9)', 7, 700);
 
   /* title: serif italic hero, wrapped and clamped */
   x.font='400 58px Geist';
   const titleLines=wrapLines(x, card.title, 660, 3);
   x.fillStyle='#FFFFFF';
-  let fy=oy+D+170;
+  let fy=oy+D+160;
   titleLines.forEach(l=>{ x.fillText(l, mid, fy); fy+=70; });
 
   /* body, clamped so it never runs into the stamp */
@@ -1323,10 +1326,9 @@ function composeStory(card){
   const stamp=[ userName?userName.toUpperCase():null,
     wx&&wx.city?`${wx.city.toUpperCase()} ${wx.temp}°`:(wx?`${wx.temp}°`:null),
     wx?wx.stripDesc.toUpperCase():null ].filter(Boolean).join(' · ');
-  if(stamp) spacedFit(stamp, cy+ch-170, 20, 'rgba(255,255,255,.45)', 4, 700);
+  if(stamp) spacedFit(stamp, cy+ch-124, 20, 'rgba(255,255,255,.45)', 4, 700);
 
-  x.font='italic 400 72px "Instrument Serif"'; x.fillStyle='#FFFFFF'; x.fillText('Emerald', mid, cy+ch-92);
-  spaced('COMING SOON', cy+ch-52, '500 20px "JetBrains Mono"', 'rgba(255,255,255,.5)', 8);
+  spaced('COMING SOON', cy+ch-62, '500 22px "JetBrains Mono"', 'rgba(255,255,255,.6)', 8);
 
   return new Promise(res=>c.toBlob(bl=>res(bl),'image/png'));
 }

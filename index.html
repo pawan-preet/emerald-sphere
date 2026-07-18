@@ -62,7 +62,7 @@
   #orb:focus-visible{ outline:2px solid #7BD8DB; outline-offset:6px; border-radius:50%; }
   #flash{ position:fixed; inset:0; z-index:7; background:#fff; opacity:0; pointer-events:none; }
   #flash.burst{ animation:burstFlash .9s ease-out; }
-  @keyframes burstFlash{ 0%{opacity:0} 12%{opacity:.85} 100%{opacity:0} }
+  @keyframes burstFlash{ 0%{opacity:0} 12%{opacity:.6} 100%{opacity:0} }
 
   #holdHint{ position:fixed; z-index:5; left:50%; top:50%; transform:translate(-50%,-50%); pointer-events:none;
     font-family:var(--serif); font-style:italic; font-size:clamp(1.1rem,4.4vw,1.5rem); color:#FFFFFF;
@@ -557,7 +557,7 @@ const orbR = orbCtx ? runRenderer(orbCtx,'square',t=>{
   if(!holding){
     orbPulse*=0.94; if(orbPulse<0.001)orbPulse=0;
     if(fetching){ charge=lerp(charge,0.55,0.05); }          /* hold the "listening" glow through the fetch */
-    else { charge*=(revealed?0.96:0.88); if(charge<0.001)charge=0; }
+    else { charge*=0.86; if(charge<0.001)charge=0; }
   }
   /* accumulated flow phase, exactly like the app: dt * motionSpeed * rate.
      Holding (charge) accelerates the churn; a pulse gives it a nudge. */
@@ -673,7 +673,7 @@ el('orb').addEventListener('keyup',e=>{ if(e.key===' '||e.key==='Enter') onUp();
 
 function burst(){
   if(revealed) return; revealed=true;
-  orbPulse=1.6; charge=1.0; touchX=0; touchY=0; rippleT0=performance.now();
+  orbPulse=1.1; charge=0.8; touchX=0; touchY=0; rippleT0=performance.now();
   buzz([14,50,22]); humStopBloom();
   if(!reduce) el('flash').classList.add('burst');
   document.body.classList.add('done-hold','sky-on');

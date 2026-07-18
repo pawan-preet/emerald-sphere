@@ -1302,18 +1302,25 @@ function composeStory(card){
   x.font='italic 400 48px "Instrument Serif"'; x.fillStyle='rgba(255,255,255,.92)';
   x.fillText('Emerald', mid, cy+134);
 
-  /* the sphere */
-  const D=220, oy=cy+164;
+  /* the UltraSphere, exactly as the website shows it: palette glow behind,
+     the focused tag riding the marble in serif italic */
+  const D=260, oy=cy+150;
+  const pc=pal.cur;
+  const glow=x.createRadialGradient(mid,oy+D/2,D*0.2, mid,oy+D/2,D*0.95);
+  glow.addColorStop(0,`rgba(${Math.round(pc[6]*255)},${Math.round(pc[7]*255)},${Math.round(pc[8]*255)},0.30)`);
+  glow.addColorStop(1,'rgba(0,0,0,0)');
+  x.fillStyle=glow; x.fillRect(mid-D,oy-D/2,D*2,D*2);
   if(orbCtx){ try{ x.drawImage(el('orb'), mid-D/2, oy, D, D); }catch(e){} }
+  x.font='italic 400 44px "Instrument Serif"'; x.fillStyle='rgba(255,255,255,.95)';
+  x.shadowColor='rgba(0,12,30,.6)'; x.shadowBlur=14;
+  x.fillText(sentenceCase(card.tag), mid, oy+D/2+16);
+  x.shadowBlur=0;
 
-  /* tag */
-  spacedFit(card.tag.toUpperCase(), oy+D+70, 24, 'rgba(123,216,219,.9)', 7, 700);
-
-  /* title: serif italic hero, wrapped and clamped */
+  /* title */
   x.font='400 58px Geist';
   const titleLines=wrapLines(x, card.title, 660, 3);
   x.fillStyle='#FFFFFF';
-  let fy=oy+D+160;
+  let fy=oy+D+96;
   titleLines.forEach(l=>{ x.fillText(l, mid, fy); fy+=70; });
 
   /* body, clamped so it never runs into the stamp */

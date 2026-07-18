@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#030509">
+<title>Emerald</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#030509; --white:#FFFFFF; --soft:rgba(255,255,255,.74); --dim:rgba(255,255,255,.56); --faint:rgba(255,255,255,.32);
+    --sans:'Geist',system-ui,sans-serif; --serif:'Instrument Serif',Georgia,serif; --mono:'JetBrains Mono',monospace;
+    --perchTop:30dvh; --orbSize:min(70vw,310px);
+    --glowA:rgba(0,193,197,.30); --glowB:rgba(59,130,246,.16);
+  }
+  @media (max-height:640px){
+    :root{ --perchTop:25dvh; --orbSize:min(54vw,215px); }
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{ background:var(--void); color:var(--white); font-family:var(--sans); -webkit-font-smoothing:antialiased;
+    min-height:100dvh; overflow:hidden; overscroll-behavior:none; -webkit-user-select:none; user-select:none;
+    -webkit-tap-highlight-color:transparent; }
+  .mono{font-family:var(--mono)} .serif{font-family:var(--serif)}
+
+  /* ---------- layers ---------- */
+  #bg{ position:fixed; inset:0; z-index:0; width:100vw; height:100dvh; display:block; opacity:0; transition:opacity 1.6s ease; }
+  body.sky-on #bg{ opacity:1; }
+  #veil{ position:fixed; inset:0; z-index:1; background:rgba(2,4,9,.30); opacity:0; transition:opacity 1.6s ease; pointer-events:none; }
+  body.sky-on #veil{ opacity:1; }
+  #particles{ position:fixed; inset:0; z-index:2; width:100vw; height:100dvh; pointer-events:none; opacity:0; transition:opacity 2s ease; }
+  body.wx #particles{ opacity:1; }
+  #grain{ position:fixed; inset:0; z-index:8; pointer-events:none; opacity:.04; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E"); }
+
+  #wordmark{ position:fixed; top:calc(18px + env(safe-area-inset-top)); left:0; right:0; z-index:6; text-align:center;
+    font-family:var(--mono); font-size:.62rem; letter-spacing:.5em; text-indent:.5em; color:var(--dim); }
+
+  /* ---------- the orb (one canvas for the whole journey) ---------- */
+  /* one size for the whole journey: the burst just TRANSLATES the sphere up */
+  #orbWrap{ position:fixed; z-index:4; left:50%; top:50%; width:var(--orbSize); height:var(--orbSize);
+    transform:translate(-50%,-50%);
+    transition:top 1.1s cubic-bezier(.32,.9,.28,1), transform .18s cubic-bezier(.3,.7,.3,1);
+    opacity:0; }
+  body.orb-in #orbWrap{ opacity:1; transition:opacity 1.6s ease, top 1.1s cubic-bezier(.32,.9,.28,1), transform .18s cubic-bezier(.3,.7,.3,1); }
+  body.perched #orbWrap{ top:calc(var(--perchTop) + env(safe-area-inset-top)); }
+  #orbWrap.press{ transform:translate(-50%,-50%) scale(.965); }
+  /* palette-tinted aurora glow breathing behind the sphere */
+  #orbWrap::before{ content:''; position:absolute; inset:-30%; border-radius:50%; z-index:-1;
+    background:radial-gradient(circle, var(--glowA) 0%, var(--glowB) 38%, transparent 68%);
+    filter:blur(26px); opacity:.55; animation:glowPulse 4.6s ease-in-out infinite alternate; }
+  @keyframes glowPulse{ from{opacity:.38; transform:scale(.97)} to{opacity:.62; transform:scale(1.04)} }
+  #orb{ width:100%; height:100%; display:block; touch-action:none; cursor:pointer;
+    filter:drop-shadow(0 22px 40px rgba(1,4,12,.65)) drop-shadow(0 5px 12px rgba(1,4,12,.5));
+    animation:breathe 4.6s ease-in-out infinite; }
+  @keyframes breathe{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.013)} }
+  #orb:focus-visible{ outline:2px solid #7BD8DB; outline-offset:6px; border-radius:50%; }
+  #flash{ position:fixed; inset:0; z-index:7; background:#fff; opacity:0; pointer-events:none; }
+  #flash.burst{ animation:burstFlash .9s ease-out; }
+  @keyframes burstFlash{ 0%{opacity:0} 12%{opacity:.85} 100%{opacity:0} }
+
+  #holdHint{ position:fixed; z-index:5; left:50%; top:50%; transform:translate(-50%,-50%); pointer-events:none;
+    font-family:var(--serif); font-style:italic; font-size:clamp(1.1rem,4.4vw,1.5rem); color:rgba(255,255,255,.95);
+    text-shadow:0 1px 12px rgba(0,10,30,.6); opacity:0; transition:opacity .8s ease 1.1s; }
+  body.orb-in:not(.done-hold) #holdHint{ opacity:1; }
+  body.done-hold #holdHint{ opacity:0 !important; transition:opacity .3s ease; }
+
+  /* ---------- conversation scenes ---------- */
+  .scene{ position:fixed; z-index:5; left:0; right:0;
+    top:calc(var(--perchTop) + env(safe-area-inset-top) + var(--orbSize)/2 + 30px); bottom:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:14px;
+    padding:12px 26px calc(34px + env(safe-area-inset-bottom));
+    overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
+    opacity:0; transform:translateY(14px); pointer-events:none; visibility:hidden;
+    transition:opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1), visibility 0s linear .7s; }
+  .scene.on{ opacity:1; transform:none; pointer-events:auto; visibility:visible;
+    transition:opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1), visibility 0s; }
+  @media (max-height:640px){ .scene{ gap:10px; padding-top:6px; } }
+
+  .q{ font-family:var(--sans); font-weight:300; letter-spacing:-0.01em; font-size:clamp(1.4rem,6vw,1.9rem); line-height:1.26; text-align:center;
+    text-wrap:balance; text-shadow:0 1px 14px rgba(0,8,24,.5); }
+  @media (max-height:640px){ .q{ font-size:clamp(1.25rem,5.4vw,1.6rem); } }
+  .sub{ font-size:.86rem; font-weight:300; color:var(--soft); text-align:center; max-width:34ch; line-height:1.55; text-wrap:balance; }
+
+  .field{ width:min(78vw,320px); background:transparent; border:none; outline:none; color:var(--white);
+    font-family:var(--sans); font-weight:300; font-size:1.35rem; text-align:center; caret-color:#7BD8DB;
+    border-bottom:1px solid rgba(255,255,255,.28); padding:6px 4px 10px; border-radius:0;
+    transition:border-color .3s; -webkit-user-select:text; user-select:text; }
+  .field:focus{ border-color:rgba(123,216,219,.85); }
+  .field::placeholder{ color:rgba(255,255,255,.30); }
+  .field.shake{ animation:shake .4s ease; }
+  @keyframes shake{ 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 55%{transform:translateX(6px)} 80%{transform:translateX(-3px)} }
+
+  .row{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  .pill{ font-family:var(--mono); font-size:.66rem; letter-spacing:.12em; text-transform:uppercase; color:#fff; background:rgba(255,255,255,.09);
+    border:1px solid rgba(255,255,255,.22); border-radius:999px; padding:12px 22px; cursor:pointer;
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    transition:background .25s, transform .15s, border-color .25s; }
+  .pill:hover{ background:rgba(255,255,255,.16); transform:translateY(-1px); }
+  .pill:focus-visible{ outline:2px solid #7BD8DB; outline-offset:3px; }
+  .pill.primary{ background:rgba(123,216,219,.16); border-color:rgba(123,216,219,.5); }
+  .ghost{ font-family:var(--mono); font-size:.6rem; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); background:none; border:none;
+    cursor:pointer; padding:10px 14px; text-decoration:underline; text-underline-offset:4px;
+    text-shadow:0 1px 8px rgba(0,10,25,.6); }
+  .ghost:hover{ color:var(--soft); }
+  .ghost:focus-visible{ outline:2px solid #7BD8DB; outline-offset:3px; border-radius:6px; }
+  .note{ font-family:var(--mono); font-size:.62rem; letter-spacing:.08em; color:var(--dim); text-align:center; min-height:1em;
+    text-shadow:0 1px 8px rgba(0,10,25,.6); }
+
+  /* ---------- insights scene ---------- */
+  #greeting{ font-family:var(--sans); font-weight:300; font-size:clamp(1.15rem,4.6vw,1.4rem); text-align:center; text-wrap:balance;
+    line-height:1.34; text-shadow:0 1px 12px rgba(0,8,24,.5); max-width:min(88vw,380px); }
+  #insightBlock{ display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:2px;
+    transition:opacity .28s ease; max-width:min(88vw,380px); text-align:center; }
+  #insightTitle{ font-family:var(--sans); font-weight:400; letter-spacing:-0.01em; font-size:clamp(1.25rem,5.2vw,1.6rem); line-height:1.3; text-wrap:balance; }
+  #insightTitle:empty{ display:none; }
+  #insightBody{ font-size:.9rem; font-weight:300; color:var(--soft); line-height:1.6; text-wrap:balance; }
+  @media (max-height:640px){ #insightTitle{ font-size:1.25rem; } #insightBody{ font-size:.82rem; } }
+  #dragHint{ font-family:var(--mono); font-size:.62rem; letter-spacing:.14em; color:var(--dim);
+    opacity:0; transition:opacity .8s ease; text-shadow:0 1px 8px rgba(0,10,25,.6); }
+  #dragHint.on{ opacity:1; }
+  #shareRow{ margin-top:4px; }
+
+  /* the 3D tag carousel riding the orb (vertically centred on it) */
+  #carousel{ position:fixed; z-index:5; left:50%;
+    top:calc(var(--perchTop) + env(safe-area-inset-top) - var(--orbSize)/2);
+    width:min(88vw,420px); height:var(--orbSize);
+    transform:translate(-50%,0); pointer-events:none; opacity:0; transition:opacity .8s ease .2s; }
+  body.scene-insights #carousel{ opacity:1; }
+  .tagCard{ position:absolute; left:50%; top:50%; white-space:pre; text-align:center;
+    font-family:var(--serif); font-style:italic; font-size:clamp(1.25rem,5.4vw,1.7rem);
+    color:rgba(255,255,255,.95); text-shadow:0 1px 10px rgba(0,12,30,.55); will-change:transform,filter,opacity; }
+  .tagCard.shimmer{ color:transparent; background-image:linear-gradient(110deg, rgba(255,255,255,.4) 38%, #fff 50%, rgba(255,255,255,.4) 62%);
+    background-size:250% 100%; -webkit-background-clip:text; background-clip:text; animation:sweep 2.2s linear infinite; }
+  @keyframes sweep{ 0%{background-position:120% 0} 100%{background-position:-130% 0} }
+
+  /* weather strip */
+  #wxStrip{ position:fixed; z-index:6; left:0; right:0; bottom:calc(12px + env(safe-area-inset-bottom)); text-align:center;
+    font-family:var(--mono); font-size:.6rem; letter-spacing:.18em; color:var(--dim); min-height:1em; padding:0 16px;
+    opacity:0; transition:opacity .8s ease; pointer-events:none; text-shadow:0 1px 8px rgba(0,10,25,.6); }
+  #wxStrip.on{ opacity:1; }
+
+  /* gesture surface wrapping the whole orb + tags during insights */
+  #dragSurface{ position:fixed; z-index:6; left:0; right:0;
+    top:calc(var(--perchTop) + env(safe-area-inset-top) - var(--orbSize)/2 - 24px);
+    height:calc(var(--orbSize) + 64px);
+    display:none; touch-action:pan-y; cursor:grab; }
+  body.scene-insights #dragSurface{ display:block; }
+  #dragSurface.grabbing{ cursor:grabbing; }
+  #dragSurface:focus-visible{ outline:2px solid #7BD8DB; outline-offset:-4px; border-radius:28px; }
+
+  @media (prefers-reduced-motion:reduce){
+    *{ transition-duration:.2s !important; animation-duration:.2s !important; }
+    .tagCard.shimmer{ animation:none; color:rgba(255,255,255,.95); background:none; }
+    #flash.burst{ animation:none; }
+    #orb{ animation:none; }
+    #orbWrap::before{ animation:none; opacity:.45; }
+  }
+</style>
+</head>
+<body>
+  <canvas id="bg"></canvas>
+  <div id="veil"></div>
+  <canvas id="particles"></canvas>
+  <div id="grain"></div>
+  <div id="flash"></div>
+  <div id="wordmark">EMERALD</div>
+
+  <div id="orbWrap"><canvas id="orb" tabindex="0" role="button"
+    aria-label="The sphere. Press and hold, or hold Space, to begin."></canvas></div>
+  <div id="holdHint" class="serif" aria-hidden="true">press and hold</div>
+
+  <!-- name -->
+  <section class="scene" id="sceneName">
+    <div class="q">What should the sphere<br>call you?</div>
+    <input class="field" id="nameField" type="text" maxlength="20" placeholder="your name"
+      autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done" aria-label="Your name">
+    <div class="row">
+      <button class="pill primary" id="nameGo">that's me</button>
+    </div>
+    <button class="ghost" id="nameSkip">skip</button>
+  </section>
+
+  <!-- sky -->
+  <section class="scene" id="sceneSky">
+    <div class="q" id="skyQ">May it read your sky?</div>
+    <div class="sub">Your coordinates become weather and light, fetched once from two weather services, then forgotten. Never stored.</div>
+    <div class="row" id="skyButtons">
+      <button class="pill primary" id="skyGeo">read my sky</button>
+      <button class="pill" id="skyCity">type a city</button>
+    </div>
+    <input class="field" id="cityField" type="text" maxlength="40" placeholder="city name" style="display:none"
+      autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="search" aria-label="City name">
+    <div class="note" id="skyNote" role="status"></div>
+    <button class="ghost" id="skySkip">skip</button>
+  </section>
+
+  <!-- insights -->
+  <section class="scene" id="sceneInsights">
+    <div id="greeting"></div>
+    <div id="insightBlock" aria-live="polite">
+      <div id="insightTitle" class="serif"></div>
+      <div id="insightBody"></div>
+    </div>
+    <div id="dragHint">DRAG THE SPHERE</div>
+    <div class="row" id="shareRow">
+      <button class="pill primary" id="postBtn">post to instagram</button>
+      <button class="pill" id="saveBtn">save image</button>
+    </div>
+    <div class="note" id="shareNote"></div>
+  </section>
+
+  <div id="carousel" aria-hidden="true"></div>
+  <div id="dragSurface" tabindex="0" role="group"
+    aria-label="Insight carousel. Use the left and right arrow keys to turn the sphere."></div>
+  <div id="wxStrip"></div>
+
+<script>
+'use strict';
+/* ============================================================
+   EMERALD — your sky, sensed.
+   One orb, four acts: awaken → name → sky → insights.
+   The sphere shader is a line-for-line port of the app's
+   LiquidSphereShader.metal (Phoenix hero orb).
+   ============================================================ */
+const el = id => document.getElementById(id);
+const reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const lerp = (a,b,t) => a + (b-a)*t;
+const buzz = p => { try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} };
+
+/* ============================================================
+   SHADERS
+   ============================================================ */
+const vert = `attribute vec2 p; void main(){ gl_Position=vec4(p,0.0,1.0); }`;
+/* value-noise chain ported from the Metal shader: same hash, same trilinear
+   blend, same 6-octave fbm with the twin shear rotations and 2.02 lacunarity */
+const NOISE = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+float sphereHash(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453123); }
+float sphereNoise(vec3 p){
+  vec3 i=floor(p); vec3 f=fract(p);
+  vec3 u=f*f*(3.0-2.0*f);
+  float n000=sphereHash(i+vec3(0.0,0.0,0.0));
+  float n100=sphereHash(i+vec3(1.0,0.0,0.0));
+  float n010=sphereHash(i+vec3(0.0,1.0,0.0));
+  float n110=sphereHash(i+vec3(1.0,1.0,0.0));
+  float n001=sphereHash(i+vec3(0.0,0.0,1.0));
+  float n101=sphereHash(i+vec3(1.0,0.0,1.0));
+  float n011=sphereHash(i+vec3(0.0,1.0,1.0));
+  float n111=sphereHash(i+vec3(1.0,1.0,1.0));
+  float nx00=mix(n000,n100,u.x); float nx10=mix(n010,n110,u.x);
+  float nx01=mix(n001,n101,u.x); float nx11=mix(n011,n111,u.x);
+  return mix(mix(nx00,nx10,u.y), mix(nx01,nx11,u.y), u.z);
+}
+float sphereFbm(vec3 p){
+  float v=0.0; float a=0.4;
+  for(int i=0;i<6;i++){
+    v+=a*sphereNoise(p);
+    p=vec3(0.8*p.x-0.6*p.y, 0.6*p.x+0.8*p.y, p.z);
+    p=vec3(p.x, 0.8*p.y-0.6*p.z, 0.6*p.y+0.8*p.z);
+    p*=2.02; a*=0.5;
+  }
+  return v;
+}
+vec3 rotateY(vec3 v, float angle){
+  float c=cos(angle); float s=sin(angle);
+  return vec3(c*v.x+s*v.z, v.y, -s*v.x+c*v.z);
+}`;
+/* the app's exact 5-stop ramp: navy #0D172E dominates low band, recovery #3B82F6,
+   sleep teal #00C1C5 held twice, movement terracotta #D96434 capped to crests */
+const PALETTE = `
+uniform vec3 u_c0; uniform vec3 u_c1; uniform vec3 u_c2; uniform vec3 u_c3; uniform vec3 u_c4;
+vec3 ramp5(float t){
+  t=clamp(t,0.0,1.0);
+  if(t<0.34) return mix(u_c0,u_c1,t/0.34);
+  if(t<0.54) return mix(u_c1,u_c2,(t-0.34)/0.20);
+  if(t<0.64) return mix(u_c2,u_c3,(t-0.54)/0.10);
+  return mix(u_c3,u_c4,(t-0.64)/0.36);
+}`;
+
+/* the sphere — LiquidSphereShader.metal ported to GLSL, plus this page's
+   interaction uniforms (hold charge, tap ripple, lightning flash) */
+const sphereFrag = NOISE + PALETTE + `
+uniform vec2 u_res; uniform float u_beat; uniform float u_yaw; uniform float u_flow;
+uniform float u_charge; uniform float u_tapAge; uniform vec2 u_touch;
+uniform float u_flash; uniform float u_sparkle;
+void main(){
+  vec2 centered=(gl_FragCoord.xy-0.5*u_res)/min(u_res.x,u_res.y)*2.0;
+  float radius=0.9;
+  float radial=length(centered);
+  float aa=0.012;
+  float alpha=1.0-smoothstep(radius-aa,radius+aa,radial);
+  if(radial>radius+aa*2.0){ gl_FragColor=vec4(0.0); return; }
+
+  float z=sqrt(max(0.0,radius*radius-dot(centered,centered)));
+  vec3 N=normalize(vec3(centered,z)+vec3(0.0,0.0,1e-5));
+  float er=clamp(radial/radius,0.0,1.5);
+
+  /* object-space sample direction: yaw-rotate so the marble parallaxes as it turns */
+  vec3 dir=rotateY(N,u_yaw);
+
+  /* FIELD_SCALE 0.50 — one big marble blob across the diameter */
+  vec3 fieldPos=dir*0.50;
+  float ft=u_flow;
+
+  vec3 q=vec3(
+    sphereFbm(fieldPos*0.9+vec3(0.0,ft,0.0)),
+    sphereFbm(fieldPos*0.9+vec3(5.2,-ft*0.8,2.0)),
+    sphereFbm(fieldPos*0.9+vec3(2.7,ft*0.6,7.0)));
+  vec3 rr=vec3(
+    sphereFbm(fieldPos*1.1+2.0*q+vec3(1.7,9.2,0.0)+ft*0.5),
+    sphereFbm(fieldPos*1.1+2.0*q+vec3(8.3,2.8,4.0)-ft*0.4),
+    sphereFbm(fieldPos*1.1+2.0*q+vec3(3.1,5.5,9.0)+ft*0.3));
+  vec3 field=fieldPos*1.2+2.4*rr;
+  float rawHeight=sphereFbm(field);
+
+  /* contrast-expand the height histogram so colors land on pure ramp anchors.
+     (3.2 here vs Metal's 2.6: WebGL's noise sits tighter around its mean, so it
+     needs a wider expand to reach the same navy depths and terracotta crests) */
+  float height=clamp((rawHeight-0.40)*3.2+0.44,0.0,1.0);
+  float rrx=clamp((rr.x-0.40)*2.4+0.42,0.0,1.0);
+
+  float band=smoothstep(0.12,0.95,height*0.95+0.30*rrx+0.05);
+  vec3 col=ramp5(band)*u_beat;
+
+  /* additive micro-sparkle on the crests (#E6EBFF), star-dust boost at night/snow */
+  float msp=pow(smoothstep(0.62,1.0,height+0.2*rr.y),4.5);
+  col+=msp*vec3(0.902,0.922,1.0)*(0.20+u_sparkle*0.5);
+
+  /* pill V11 lighting: directional top-left, no round hotspot */
+  vec3 Lw=normalize(vec3(-0.70,0.70,0.6));
+  float ndl=dot(N,Lw);
+  float diffuse=mix(0.86,1.14,smoothstep(-0.62,1.0,ndl));
+  col*=diffuse;
+  vec3 Hn=normalize(Lw+vec3(0.0,0.0,1.0));
+
+  /* relief specular following the liquid surface (pow 40) */
+  float e=0.02;
+  float hx=sphereFbm(field+vec3(e,0.0,0.0))-rawHeight;
+  float hy=sphereFbm(field+vec3(0.0,e,0.0))-rawHeight;
+  vec3 reliefN=normalize(vec3(hx*7.0,hy*7.0,1.0));
+  float specL=pow(clamp(dot(reliefN,Hn),0.0,1.0),40.0);
+  col+=specL*0.2*vec3(1.0,0.98,0.95);
+
+  /* thin lit crescent rim (#FFFCF5) */
+  vec2 ndir=normalize(centered+vec2(1e-5));
+  vec2 Ldir=normalize(vec2(-0.70,0.70));
+  float sideDot=dot(ndir,Ldir);
+  float litMask=pow(clamp(sideDot,0.0,1.0),2.6);
+  float rim=smoothstep(0.55,0.95,er)*litMask;
+  col+=rim*0.58*vec3(1.0,0.99,0.96);
+
+  /* inner shading on the far face */
+  float shadowSide=pow(clamp(-sideDot,0.0,1.0),1.4);
+  float innerShade=smoothstep(0.15,0.95,er)*shadowSide;
+  col*=mix(1.0,0.70,innerShade);
+
+  /* gentle limb darkening keeps it a ball */
+  float vignette=smoothstep(1.06,0.40,er);
+  col*=mix(0.80,1.06,vignette);
+
+  /* hold-to-charge: light gathers from the centre */
+  float coreGlow=smoothstep(0.9,-0.1,radial)*u_charge;
+  col+=coreGlow*vec3(0.35,0.55,0.75)*(0.6+z);
+  col*=1.0+u_charge*0.22;
+
+  /* tap ripple (Metal spec: wavefront 2.2, width .28, life .6s, white additive) */
+  if(u_tapAge>0.0&&u_tapAge<0.6){
+    float dist=length(centered-u_touch);
+    float waveFront=u_tapAge*2.2;
+    float dd=(dist-waveFront)/0.28;
+    float ring=exp(-dd*dd)*exp(-u_tapAge*4.0);
+    col+=ring*0.18*vec3(1.0);
+  }
+
+  col+=u_flash*vec3(0.9,0.95,1.0)*0.5;
+  col=clamp(col,0.0,1.0);
+  gl_FragColor=vec4(col*alpha,alpha);
+}`;
+
+/* the atmosphere — deep space, palette-tinted aurora bands, stars.
+   The orb is the light source; the sky just remembers its colors. */
+const flatFrag = NOISE + PALETTE + `
+uniform vec2 u_res; uniform float u_time; uniform vec2 u_pointer;
+uniform float u_flash; uniform float u_star;
+float fbm3(vec3 p){
+  float v=0.0; float a=0.5;
+  for(int i=0;i<3;i++){ v+=a*sphereNoise(p); p*=2.03; a*=0.5; }
+  return v;
+}
+void main(){
+  vec2 p=(gl_FragCoord.xy-0.5*u_res)/u_res.y;
+  p+=u_pointer*vec2(0.05,0.03);
+  float ft=u_time*0.05;
+
+  /* deep-space base: near-black rising into the ramp's navy */
+  vec3 col=mix(vec3(0.006,0.010,0.024), u_c0*0.55, clamp(0.62-p.y,0.0,1.0));
+
+  /* aurora bands drifting through the ramp colors */
+  float w1=fbm3(vec3(p.x*1.3, p.y*2.1, ft));
+  float band1=exp(-pow((p.y-0.24-(w1-0.5)*0.42),2.0)/0.02);
+  col+=u_c2*band1*(0.22+0.26*w1);
+  float w2=fbm3(vec3(p.x*1.7+4.7, p.y*2.6, ft*0.8+2.0));
+  float band2=exp(-pow((p.y+0.06-(w2-0.5)*0.5),2.0)/0.055);
+  col+=u_c1*band2*(0.10+0.16*w2);
+  float w3=fbm3(vec3(p.x*1.1-2.3, p.y*1.8, ft*0.6+7.0));
+  float band3=exp(-pow((p.y+0.44-(w3-0.5)*0.34),2.0)/0.03);
+  col+=u_c4*band3*0.085;
+
+  /* pin-prick stars, twinkling */
+  vec2 cell=floor(gl_FragCoord.xy/3.0);
+  float h=fract(sin(dot(cell,vec2(12.9898,78.233)))*43758.5453);
+  float tw=0.6+0.4*sin(u_time*1.4+h*40.0);
+  col+=step(0.9984,h)*(0.10+u_star)*tw*vec3(0.9,0.95,1.0);
+
+  /* corner falloff keeps the centre stage lit */
+  col*=1.0-0.42*dot(p,p);
+  col+=u_flash*vec3(0.85,0.9,1.0)*0.35;
+  gl_FragColor=vec4(col,1.0);
+}`;
+
+/* ============================================================
+   GL plumbing — generic uniform feed, context-loss aware
+   ============================================================ */
+const UNIFORMS=['u_res','u_time','u_beat','u_yaw','u_flow','u_charge','u_tapAge','u_touch',
+  'u_pointer','u_flash','u_sparkle','u_star','u_c0','u_c1','u_c2','u_c3','u_c4'];
+function initGL(canvas, frag){
+  let gl=null;
+  try{ gl=canvas.getContext('webgl',{alpha:true,antialias:true,premultipliedAlpha:true,preserveDrawingBuffer:true})
+        ||canvas.getContext('experimental-webgl',{alpha:true,premultipliedAlpha:true,preserveDrawingBuffer:true}); }catch(e){}
+  if(!gl) return null;
+  const ctx={gl,canvas,u:{},onRestored:null};
+  function build(){
+    const cmp=(t,s)=>{ const sh=gl.createShader(t); gl.shaderSource(sh,s); gl.compileShader(sh);
+      if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(sh)); return sh; };
+    const prog=gl.createProgram(); gl.attachShader(prog,cmp(gl.VERTEX_SHADER,vert)); gl.attachShader(prog,cmp(gl.FRAGMENT_SHADER,frag));
+    gl.linkProgram(prog);
+    if(!gl.getProgramParameter(prog,gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(prog)); return false; }
+    gl.useProgram(prog);
+    const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+    const lp=gl.getAttribLocation(prog,'p'); gl.enableVertexAttribArray(lp); gl.vertexAttribPointer(lp,2,gl.FLOAT,false,0,0);
+    gl.disable(gl.BLEND);
+    gl.clearColor(0,0,0,0);
+    UNIFORMS.forEach(n=>{ ctx.u[n]=gl.getUniformLocation(prog,n); });
+    return true;
+  }
+  if(!build()) return null;
+  canvas.addEventListener('webglcontextlost',e=>e.preventDefault());
+  canvas.addEventListener('webglcontextrestored',()=>{ build(); if(ctx.onRestored) ctx.onRestored(); });
+  return ctx;
+}
+function runRenderer(ctx, mode, stateFn){
+  if(!ctx) return null;
+  const {gl,u,canvas}=ctx; let raf=null, running=false, t0=performance.now(), lastDraw=0;
+  function resize(){
+    const dpr=Math.min(window.devicePixelRatio||1, mode==='full'?1.25:2);
+    const w=mode==='full'?window.innerWidth:(canvas.clientWidth||120);
+    const h=mode==='full'?window.innerHeight:(canvas.clientHeight||canvas.clientWidth||120);
+    canvas.width=Math.max(1,Math.round(w*dpr)); canvas.height=Math.max(1,Math.round(h*dpr));
+    gl.viewport(0,0,canvas.width,canvas.height);
+  }
+  resize();
+  ctx.onRestored=resize;
+  if(mode==='full') window.addEventListener('resize',resize);
+  else if('ResizeObserver' in window) new ResizeObserver(resize).observe(canvas);
+  function frame(now){
+    if(!running) return;
+    /* 30fps, like the app's MTKView */
+    if(now-lastDraw<31){ raf=requestAnimationFrame(frame); return; }
+    lastDraw=now;
+    const t=(now-t0)/1000;
+    const s=stateFn?stateFn(t):{};
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform2f(u.u_res,canvas.width,canvas.height);
+    if(u.u_time) gl.uniform1f(u.u_time, reduce? t/3 : t);
+    for(const k in s){
+      const loc=u[k]; if(!loc) continue;
+      const v=s[k];
+      if(typeof v==='number') gl.uniform1f(loc,v);
+      else if(v.length===2) gl.uniform2f(loc,v[0],v[1]);
+      else if(v.length===3) gl.uniform3f(loc,v[0],v[1],v[2]);
+    }
+    gl.drawArrays(gl.TRIANGLES,0,3);
+    raf=requestAnimationFrame(frame);
+  }
+  return {
+    start(){ if(!running){ running=true; t0=performance.now(); raf=requestAnimationFrame(frame); } },
+    stop(){ running=false; if(raf) cancelAnimationFrame(raf); },
+    resize
+  };
+}
+
+/* ============================================================
+   PALETTES — ramp5 stop-sets straight from the app renderer:
+   c0 #0D172E deep navy, c1 #3B82F6 recovery, c2 #00C1C5 sleep teal,
+   c3 = the teal HOLD, c4 #D96434 movement terracotta (crests only).
+   Weather moods regrade the same family; oa scales how far c4
+   actually reaches toward terracotta.
+   ============================================================ */
+const hex=h=>[parseInt(h.slice(1,3),16)/255,parseInt(h.slice(3,5),16)/255,parseInt(h.slice(5,7),16)/255];
+const PALETTES={
+  default:  {c:[hex('#0D172E'),hex('#3B82F6'),hex('#00C1C5'),hex('#00C1C5')], o:hex('#D96434'), oa:1.0,  star:.30, spark:0},
+  clearDay: {c:[hex('#0D172E'),hex('#3B82F6'),hex('#00C1C5'),hex('#00C1C5')], o:hex('#D96434'), oa:1.0,  star:.05, spark:0},
+  partly:   {c:[hex('#0D172E'),hex('#3577DE'),hex('#0FB2B6'),hex('#0FB2B6')], o:hex('#D96434'), oa:.85,  star:.05, spark:0},
+  overcast: {c:[hex('#0D1524'),hex('#3D5F8C'),hex('#4E8590'),hex('#4E8590')], o:hex('#B25A32'), oa:.6,   star:0,   spark:0},
+  fog:      {c:[hex('#151D2A'),hex('#5D6E80'),hex('#7C9097'),hex('#8FA3A8')], o:hex('#8A5B3E'), oa:.45,  star:0,   spark:.1},
+  rain:     {c:[hex('#0B1626'),hex('#2A5674'),hex('#0F8E96'),hex('#0F8E96')], o:hex('#A65B32'), oa:.5,   star:0,   spark:0},
+  storm:    {c:[hex('#070D18'),hex('#22334F'),hex('#116B7A'),hex('#116B7A')], o:hex('#C2532A'), oa:.7,   star:0,   spark:.15},
+  snow:     {c:[hex('#16233A'),hex('#5B84B8'),hex('#7FB6C9'),hex('#CFE7EE')], o:hex('#C98357'), oa:.4,   star:.1,  spark:.5},
+  nightClear:{c:[hex('#0A1430'),hex('#1D3A7A'),hex('#0E7C88'),hex('#0E7C88')],o:hex('#D96434'), oa:.7,   star:.85, spark:.55},
+  nightCloud:{c:[hex('#060B16'),hex('#1B2D4E'),hex('#0D5E68'),hex('#0D5E68')],o:hex('#B25A32'), oa:.5,   star:.15, spark:.1},
+  hot:      {c:[hex('#221510'),hex('#8A4A2C'),hex('#D96434'),hex('#D96434')], o:hex('#E9743F'), oa:1.0,  star:0,   spark:0},
+};
+const pal={ cur:null, tgt:null };
+/* oa folds into the c4 stop here, so the shaders stay exactly the app's ramp5 */
+function flatten(P){
+  const c4=P.c[3].map((v,i)=>v+(P.o[i]-v)*Math.min(1,P.oa));
+  return [...P.c[0],...P.c[1],...P.c[2],...P.c[3],...c4,P.star,P.spark];
+}
+pal.cur=flatten(PALETTES.default); pal.tgt=[...pal.cur];
+function setPalette(name){
+  const P=PALETTES[name]||PALETTES.default;
+  pal.tgt=flatten(P);
+  /* tint the under-orb glow from the mood's teal + blue stops */
+  const rgba=(c,a)=>`rgba(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)},${a})`;
+  document.documentElement.style.setProperty('--glowA', rgba(P.c[2],.30));
+  document.documentElement.style.setProperty('--glowB', rgba(P.c[1],.15));
+}
+function paletteUniforms(){
+  for(let i=0;i<pal.cur.length;i++) pal.cur[i]=lerp(pal.cur[i],pal.tgt[i],0.018);
+  const c=pal.cur;
+  return { u_c0:[c[0],c[1],c[2]], u_c1:[c[3],c[4],c[5]], u_c2:[c[6],c[7],c[8]],
+    u_c3:[c[9],c[10],c[11]], u_c4:[c[12],c[13],c[14]], u_star:c[15], u_sparkle:c[16] };
+}
+
+/* ============================================================
+   SHARED ORB STATE
+   ============================================================ */
+let ptrX=0, ptrY=0, orbPulse=0, holding=false, charge=0;
+let touchX=0, touchY=0, rippleT0=-1;
+let flashLevel=0;          /* lightning */
+let carouselYaw=0;         /* fed by the paging driver */
+let revealed=false, fetching=false;
+let flowPhase=0, lastFlowT=null;
+const orbCtx=initGL(el('orb'), sphereFrag);
+const bgCtx=initGL(el('bg'), flatFrag);
+const hasGL=!!orbCtx;
+
+const orbR = orbCtx ? runRenderer(orbCtx,'square',t=>{
+  if(!holding){
+    orbPulse*=0.94; if(orbPulse<0.001)orbPulse=0;
+    if(fetching){ charge=lerp(charge,0.55,0.05); }          /* hold the "listening" glow through the fetch */
+    else { charge*=(revealed?0.96:0.88); if(charge<0.001)charge=0; }
+  }
+  /* accumulated flow phase, exactly like the app: dt * motionSpeed * rate.
+     Holding (charge) accelerates the churn; a pulse gives it a nudge. */
+  const dt=lastFlowT==null?0:Math.min(0.1,t-lastFlowT); lastFlowT=t;
+  flowPhase+=dt*0.42*0.5*(1+charge*1.6+orbPulse*0.8);
+  const beat=1+Math.sin(t*0.42*1.2)*0.03;
+  const rip=rippleT0>=0?(performance.now()-rippleT0)/1000:-1.0;
+  if(rip>1.4) rippleT0=-1;
+  return Object.assign({ u_beat:beat*(1+orbPulse*0.10), u_flow:flowPhase, u_yaw:carouselYaw,
+    u_charge:charge, u_tapAge:rip, u_touch:[touchX,touchY], u_flash:flashLevel }, paletteUniforms());
+}) : null;
+if(orbR) orbR.start();
+let bgR=null;
+setPalette('default');
+
+/* fallback: no WebGL → still give them the journey on a CSS orb */
+if(!hasGL){
+  el('orb').style.background='radial-gradient(circle at 34% 30%, #3B82F6 0%, #00C1C5 34%, #13233F 72%, #0D172E 100%)';
+  el('orb').style.borderRadius='50%';
+  el('holdHint').textContent='tap to begin';
+}
+
+/* pointer / tilt drifts the atmosphere (the orb itself stays true to the app) */
+window.addEventListener('pointermove',e=>{
+  ptrX=(e.clientX/window.innerWidth-0.5)*2;
+  ptrY=(0.5-e.clientY/window.innerHeight)*2;
+},{passive:true});
+function toUV(cx,cy){ const rc=el('orb').getBoundingClientRect();
+  return [((cx-rc.left)/rc.width-0.5)*2.0,(0.5-(cy-rc.top)/rc.height)*2.0]; }
+
+/* ============================================================
+   AUDIO — a low hum that rises with the charge, blooms at burst
+   ============================================================ */
+let AC=null, humOsc=null, humOsc2=null, humGain=null;
+function ensureAudio(){
+  try{
+    if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==='suspended') AC.resume();
+  }catch(e){ AC=null; }
+}
+document.addEventListener('pointerdown',()=>{ if(AC&&AC.state==='suspended'){ try{AC.resume();}catch(e){} } },{passive:true});
+function humStart(){
+  if(!AC) return;
+  try{
+    humGain=AC.createGain(); humGain.gain.value=0; humGain.connect(AC.destination);
+    humOsc=AC.createOscillator(); humOsc.type='sine'; humOsc.frequency.value=58;
+    humOsc2=AC.createOscillator(); humOsc2.type='sine'; humOsc2.frequency.value=87.5;
+    const g2=AC.createGain(); g2.gain.value=0.5; humOsc2.connect(g2); g2.connect(humGain);
+    humOsc.connect(humGain); humOsc.start(); humOsc2.start();
+  }catch(e){}
+}
+function humSet(p){ if(humGain){ try{ humGain.gain.value=p*0.055; if(humOsc) humOsc.frequency.value=58+p*30; }catch(e){} } }
+function humStopBloom(){
+  if(!AC||!humGain) return;
+  try{
+    const t=AC.currentTime;
+    humGain.gain.cancelScheduledValues(t);
+    humGain.gain.setValueAtTime(Math.max(humGain.gain.value,0.02),t);
+    humGain.gain.exponentialRampToValueAtTime(0.09,t+0.08);
+    humGain.gain.exponentialRampToValueAtTime(0.0001,t+1.4);
+    if(humOsc){ humOsc.frequency.setValueAtTime(humOsc.frequency.value,t); humOsc.frequency.exponentialRampToValueAtTime(160,t+1.1); }
+    setTimeout(()=>{ try{ humOsc&&humOsc.stop(); humOsc2&&humOsc2.stop(); }catch(e){} humOsc=humOsc2=humGain=null; },1600);
+  }catch(e){}
+}
+
+/* ============================================================
+   ACT 1 — awaken: press and hold to charge the sphere
+   (pointer or keyboard: hold Space / Enter on the focused orb)
+   ============================================================ */
+const HOLD=950;
+let holdStart=0, holdRAF=null;
+document.body.classList.add('orb-in');
+
+function startHold(uvx,uvy){
+  if(revealed||holding) return;
+  ensureAudio();
+  if(!hasGL){ burst(); return; }
+  holding=true; holdStart=performance.now();
+  el('orbWrap').classList.add('press');
+  touchX=uvx; touchY=uvy; rippleT0=performance.now();
+  buzz(8); humStart();
+  holdTick();
+}
+function onDown(e){
+  if(e.cancelable) e.preventDefault();
+  const uv=toUV(e.clientX,e.clientY);
+  startHold(uv[0],uv[1]);
+}
+function holdTick(){
+  if(!holding) return;
+  const p=Math.min(1,(performance.now()-holdStart)/HOLD);
+  charge=p*p;
+  humSet(p);
+  el('holdHint').style.opacity=String(Math.max(0,1-p*1.2));
+  if(p>=1){ holding=false; el('orbWrap').classList.remove('press'); burst(); return; }
+  holdRAF=requestAnimationFrame(holdTick);
+}
+function onUp(){
+  if(!holding) return;
+  holding=false; cancelAnimationFrame(holdRAF);
+  el('orbWrap').classList.remove('press');
+  el('holdHint').style.opacity='';
+  humSet(0);
+}
+el('orb').addEventListener('pointerdown',onDown);
+window.addEventListener('pointerup',onUp);
+window.addEventListener('pointercancel',onUp);
+el('orb').addEventListener('keydown',e=>{
+  if(e.repeat) return;
+  if(e.key===' '||e.key==='Enter'){ e.preventDefault(); startHold(0,0); }
+});
+el('orb').addEventListener('keyup',e=>{ if(e.key===' '||e.key==='Enter') onUp(); });
+
+function burst(){
+  if(revealed) return; revealed=true;
+  orbPulse=1.6; charge=1.0; touchX=0; touchY=0; rippleT0=performance.now();
+  buzz([14,50,22]); humStopBloom();
+  if(!reduce) el('flash').classList.add('burst');
+  document.body.classList.add('done-hold','sky-on');
+  if(bgCtx&&!bgR){ bgR=runRenderer(bgCtx,'full',()=>Object.assign({u_flash:flashLevel,u_pointer:[ptrX,ptrY]},paletteUniforms())); }
+  if(bgR) bgR.start();
+  setTimeout(()=>{ document.body.classList.add('perched'); },350);
+  setTimeout(()=>{ showScene('sceneName');
+    if(window.matchMedia('(pointer:fine)').matches) el('nameField').focus({preventScroll:true});
+  },1200);
+}
+
+/* ============================================================
+   SCENES
+   ============================================================ */
+const SCENES=['sceneName','sceneSky','sceneInsights'];
+function showScene(id){
+  SCENES.forEach(s=>{ el(s).classList.toggle('on', s===id); });
+  document.body.classList.toggle('scene-insights', id==='sceneInsights');
+}
+
+/* ---------- ACT 2: name ---------- */
+let userName='';
+el('nameField').addEventListener('input',()=>{
+  touchX=(Math.random()-0.5)*1.2; touchY=(Math.random()-0.5)*1.2;
+  rippleT0=performance.now(); orbPulse=Math.min(1,orbPulse+0.25); buzz(4);
+});
+function submitName(){
+  const v=el('nameField').value.trim().replace(/\s+/g,' ');
+  userName=v.slice(0,20);
+  orbPulse=1.1; buzz([8,30,12]);
+  el('nameField').blur();
+  toSky();
+}
+el('nameGo').addEventListener('click',submitName);
+el('nameField').addEventListener('keydown',e=>{ if(e.key==='Enter') submitName(); });
+el('nameSkip').addEventListener('click',()=>{ userName=''; el('nameField').blur(); toSky(); });
+
+function toSky(){
+  if(userName){
+    el('skyQ').innerHTML='Nice to meet you, <span id="skyQName"></span>.<br>May it read your sky?';
+    el('skyQName').textContent=userName;
+  }
+  showScene('sceneSky');
+}
+
+/* ---------- ACT 3: sky ---------- */
+let wx=null;   /* weather context, null = skipped/unavailable */
+
+el('skyGeo').addEventListener('click',()=>{
+  if(fetching||entered) return;
+  requestTilt();  /* same grant moment: ask for gyro where a prompt is needed */
+  if(!navigator.geolocation){ cityMode('No location on this device. Type a city instead.'); return; }
+  setNote('listening to your sky…',true);
+  fetching=true;
+  navigator.geolocation.getCurrentPosition(
+    pos=>{ loadWeather(pos.coords.latitude,pos.coords.longitude,null); },
+    err=>{ fetching=false;
+      cityMode(err.code===1?'Location was blocked. Type a city instead.':'Your sky is out of reach. Type a city instead.'); },
+    {timeout:10000, maximumAge:600000}
+  );
+});
+el('skyCity').addEventListener('click',()=>{ if(!fetching&&!entered) cityMode(''); });
+function cityMode(msg){
+  el('skyButtons').style.display='none';
+  el('cityField').style.display='';
+  setNote(msg,false);
+  el('cityField').focus({preventScroll:true});
+}
+el('cityField').addEventListener('keydown',e=>{ if(e.key==='Enter') searchCity(); });
+el('cityField').addEventListener('input',()=>{ orbPulse=Math.min(1,orbPulse+0.15); });
+async function searchCity(){
+  if(fetching||entered) return;
+  const q=el('cityField').value.trim();
+  if(!q) return;
+  setNote('listening to your sky…',true);
+  fetching=true;
+  try{
+    const r=await fetchT(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`);
+    const j=await r.json();
+    if(!j.results||!j.results.length){
+      fetching=false;
+      el('cityField').classList.add('shake'); setTimeout(()=>el('cityField').classList.remove('shake'),450);
+      setNote('No sky found by that name. Try another.',false);
+      return;
+    }
+    const g=j.results[0];
+    loadWeather(g.latitude,g.longitude,g.name);
+  }catch(e){ fetching=false; setNote('The sky is not answering. Try again, or skip.',false); }
+}
+el('skySkip').addEventListener('click',()=>{ if(!fetching&&!entered){ wx=null; enterInsights(); } });
+
+function setNote(t,busy){
+  const n=el('skyNote'); n.textContent=t;
+  n.style.color=busy?'rgba(123,216,219,.85)':'';
+}
+function fetchT(url,ms=9000){
+  if('AbortSignal' in window && AbortSignal.timeout) return fetch(url,{signal:AbortSignal.timeout(ms)});
+  return Promise.race([fetch(url), new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
+}
+
+async function loadWeather(lat,lon,knownCity){
+  try{
+    const wURL=`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}`+
+      `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,cloud_cover,wind_speed_10m,uv_index`+
+      `&daily=sunrise,sunset,daylight_duration,uv_index_max,temperature_2m_max,temperature_2m_min&timezone=auto`;
+    const reqs=[fetchT(wURL)];
+    if(!knownCity) reqs.push(fetchT(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&localityLanguage=en`).catch(()=>null));
+    const [wr,cr]=await Promise.all(reqs);
+    const w=await wr.json();
+    let city=knownCity;
+    if(!city&&cr){ try{ const c=await cr.json(); city=c.city||c.locality||c.principalSubdivision||''; }catch(e){} }
+    wx=buildWx(w, city||'');
+    fetching=false; orbPulse=1.2; buzz([10,40,16]);
+    enterInsights();
+  }catch(e){
+    fetching=false;
+    setNote('The sky is not answering. Try again, or skip.',false);
+  }
+}
+
+/* parse "2026-07-18T18:49" wall-clock strings without timezone damage */
+const wallMin=iso=>{ const t=iso.split('T')[1].split(':'); return (+t[0])*60+(+t[1]); };
+const WMO={0:'clear sky',1:'mostly clear',2:'partly cloudy',3:'overcast',45:'fog',48:'icy fog',
+  51:'light drizzle',53:'drizzle',55:'heavy drizzle',56:'freezing drizzle',57:'freezing drizzle',
+  61:'light rain',63:'rain',65:'heavy rain',66:'freezing rain',67:'freezing rain',
+  71:'light snow',73:'snow',75:'heavy snow',77:'snow grains',
+  80:'showers',81:'showers',82:'heavy showers',85:'snow showers',86:'snow showers',
+  95:'a thunderstorm',96:'a hailstorm',99:'a hailstorm'};
+function buildWx(w,city){
+  const c=w.current, d=w.daily;
+  const code=c.weather_code;
+  const isRain=(code>=51&&code<=67)||(code>=80&&code<=82);
+  const isSnow=(code>=71&&code<=77)||code===85||code===86;
+  const isStorm=code>=95;
+  const isFog=code===45||code===48;
+  const daylightS=d.daylight_duration[0];
+  /* polar day/night: sunrise==sunset markers make sun-anchored copy meaningless */
+  const polar = d.sunrise[0]===d.sunset[0] || daylightS<=60 || daylightS>=86340;
+  const sunriseM=wallMin(d.sunrise[0]);
+  let sunsetM=wallMin(d.sunset[0]);
+  if(sunsetM<sunriseM) sunsetM+=1440;   /* sunset lands past midnight at high latitudes; fmtM wraps it back for display */
+  const desc=WMO[code]||'sky';
+  return {
+    city, tz:w.timezone,
+    temp:Math.round(c.temperature_2m), feels:Math.round(c.apparent_temperature),
+    humidity:c.relative_humidity_2m, cloud:c.cloud_cover, wind:Math.round(c.wind_speed_10m),
+    uv:Math.round(c.uv_index), uvMax:Math.round(d.uv_index_max[0]),
+    code, desc, stripDesc:desc.replace(/^an? /,''),
+    isDay:c.is_day===1,
+    isRain,isSnow,isStorm,isFog,
+    isClear:code<=1, isOvercast:code===3||isFog,
+    polar,
+    nowM:wallMin(c.time), sunriseM, sunsetM,
+    sunrise2M:wallMin(d.sunrise[1]||d.sunrise[0]),
+    daylightS,
+  };
+}
+function moodFor(x){
+  if(!x) return 'default';
+  if(x.isStorm) return 'storm';
+  if(x.isSnow) return x.isDay?'snow':'nightCloud';
+  if(x.isRain) return x.isDay?'rain':'nightCloud';
+  if(x.isFog) return x.isDay?'fog':'nightCloud';
+  if(!x.isDay) return x.isClear?'nightClear':'nightCloud';
+  if(x.feels>=35) return 'hot';
+  if(x.isOvercast) return 'overcast';
+  if(x.code===2) return 'partly';
+  return 'clearDay';
+}
+
+/* ============================================================
+   time helpers — all gating runs on the SKY's wall clock
+   ============================================================ */
+let wxAt=performance.now();
+function localNowM(){
+  if(wx) return (wx.nowM + Math.round((performance.now()-wxAt)/60000)) % 1440;
+  const n=new Date(); return n.getHours()*60+n.getMinutes();
+}
+const fmtM=m=>{ m=((m%1440)+1440)%1440; let h=Math.floor(m/60), mm=m%60; const ap=h>=12?'pm':'am';
+  h=h%12; if(h===0)h=12; return `${h}:${String(mm).padStart(2,'0')} ${ap}`; };
+const fmtDaylight=s=>{ let h=Math.floor(s/3600), m=Math.round((s%3600)/60);
+  if(m===60){ h++; m=0; } return `${h}h ${String(m).padStart(2,'0')}m`; };
+
+/* ============================================================
+   THE INSIGHT ENGINE — sensed sky + clock → NBA-voiced cards
+   Voice rules: imperative, specific, sentence-cased tags,
+   never the word "now", no em dashes, one doable ask per card.
+   ============================================================ */
+function buildDeck(){
+  const m=localNowM();
+  const x=wx;
+  const N=userName;
+  const cards=[];
+
+  /* opening card: hello (title lives in the greeting line, not the insight block) */
+  const hourLabel = m<300?'Still up':(m<720?'Good morning':(m<1020?'Good afternoon':'Good evening'));
+  const skyLine = x
+    ? `Your sky${x.city?' over '+x.city:''}: ${x.temp}°, ${x.desc}.`+
+      (x.polar?'':` ${m<x.sunsetM?'Sunset at':'Sunset was at'} ${fmtM(x.sunsetM)}.`)+
+      ' The sphere read it a moment ago.'
+    : 'The sphere is running on your clock alone this time. Lend it your sky on the next visit and it gets sharper.';
+  /* the name lives in the greeting and insight copy only; the sphere just says hello */
+  cards.push({ tag:'Hello', title:`${hourLabel}${N?', '+N:''}.`, body:skyLine, cat:'hello' });
+
+  const pool=[];
+  const add=(cond,w,card)=>{ if(cond) pool.push(Object.assign({w},card)); };
+  const sun = x && !x.polar;   /* sun-anchored cards need a real sunrise/sunset */
+  const morning = sun? (m>=x.sunriseM&&m<=x.sunriseM+150) : (!x&&m>=360&&m<=570);
+  const nightGate = m<270;  /* before 4:30 am */
+  const ov = x&&x.city ? x.city : 'your head';   /* "over ___" phrasings */
+
+  if(nightGate){
+    /* the night gate outranks everything, like the app */
+    pool.push({w:10,tag:'Sleep',title:`It is ${fmtM(m)}${x&&x.city?' in '+x.city:''}.`,
+      body:'Nothing on this screen beats sleep at this hour. Put the phone down and let the night do its work. The sphere will be brighter in the morning, and so will you.',cat:'sleep'});
+    pool.push({w:6,tag:'Breathe',title:'Take six slow breaths.',
+      body:'Longer out than in. It is the fastest lever you own on a racing mind, and it works lying down.',cat:'universal'});
+    pool.push({w:5,tag:'Deep sleep',title:'Your brain rinses itself at night.',
+      body:'In deep sleep, fluid flushes the metabolic waste of the day. Most of that clean-up happens while you are under, so go get under.',cat:'universal'});
+  } else {
+  if(x){
+    add(morning&&!x.isRain&&!x.isOvercast, 9, {win:true, tag:'First light',title:'Catch the first hours.',
+      body:`Morning light over ${ov} runs in the thousands of lux. Your brightest room manages a few hundred. Take ten minutes outside before ${fmtM(x.sunriseM+150)} and set the master clock the rest of your body follows.`,cat:'light'});
+    add(morning&&x.isOvercast, 9, {win:true, tag:'Get light',title:'Grey still counts.',
+      body:`${x.cloud}% cloud over ${ov}, and the sky still beats your brightest room by ten times. Step out. Your body can tell the difference.`,cat:'light'});
+    add(morning&&x.isRain, 8, {win:true, tag:'Get light',title:'Rain light still works.',
+      body:`Even through rain, the sky over ${ov} out-brightens your ceiling many times over. Take a few minutes in a doorway or under an umbrella and start your clock.`,cat:'light'});
+    add(sun&&m>=x.sunsetM-75&&m<x.sunsetM-4&&!x.isRain&&!x.isStorm&&!x.isFog&&!x.isSnow, 10, {win:true, tag:'Golden hour',title:'The softest light is leaving.',
+      body:`Golden hour over ${ov} ends at ${fmtM(x.sunsetM)}. Take a slow walk in it. It lowers stress and hands your body clock a clean end-of-day marker.`,cat:'light'});
+    add(sun&&m>=x.sunsetM&&m<=1380, 8, {win:true, tag:'Wind down',title:`The sun clocked out at ${fmtM(x.sunsetM)}.`,
+      body:'Every bright screen from here on argues that it is midday. Dim the room a little and let your brain believe the sky.',cat:'sleep'});
+    add(sun&&x.feels>=28&&m>=x.sunsetM&&m<=1439, 9, {tag:'Cool down',title:`Tonight is holding ${x.temp}°.`,
+      body:'Your core has to drop about 1°C to let sleep in. Cool the room, choose cotton, and give the drop a head start.',cat:'heat'});
+    add(x.feels>=32&&x.isDay, 8, {tag:'Hydrate',title:`It feels like ${x.feels}° out there.`,
+      body:'Hard effort in this heat can cost you around a litre of water an hour. Drink before you feel thirsty. Thirst reports late.',cat:'heat'});
+    add(x.temp<=5&&m>=1140, 8, {tag:'Warm up',title:'Socks are sleep technology.',
+      body:'Cold feet keep a sleeping brain on alert. Warm your extremities and the vessels that release core heat open up. Sleep follows the drop.',cat:'sleep'});
+    add(x.temp<=5&&x.isDay&&m<1140, 6, {tag:'Cold walk',title:'A cold walk pays twice.',
+      body:`${x.temp}° air wakes brown fat and sharpens attention for about an hour afterwards. Bundle up, step out, come back warm.`,cat:'weather'});
+    add(x.isRain&&!x.isStorm&&(m>=1020||!x.isDay), 8, {tag:'Rain sound',title:'Rain is a sleep machine.',
+      body:`Steady rain over ${ov} is natural pink noise. It masks the sound spikes that fragment sleep. Keep it within earshot when you turn in.`,cat:'weather'});
+    add(x.isStorm, 9, {tag:'Go gentle',title:'Storm air is heavy air.',
+      body:'Storms ride on a barometric dip, and some bodies read it as heaviness or a dull head. Plan a gentler day and keep water close.',cat:'weather'});
+    add(x.isSnow&&x.isDay, 9, {tag:'Snow light',title:'Snow light is a gift.',
+      body:'Fresh snow reflects most of the daylight that hits it, nearly doubling what reaches your eyes. Take a short walk out there. It is a strong clock signal.',cat:'weather'});
+    add(x.isFog&&x.isDay, 8, {tag:'Get light',title:'The sky is running late.',
+      body:`Fog over ${ov} delays your light dose. It does not cancel it. Twenty minutes outside still tells your clock the day began.`,cat:'light'});
+    add(x.uv>=7&&x.isDay, 8, {tag:'Find shade',title:`UV is running at ${x.uv}${x.city?' over '+x.city:''}.`,
+      body:'Take your daylight early or in open shade. The clock benefit stays. The burn does not.',cat:'weather'});
+    add(x.wind>=25, 6, {tag:'Wind',title:`Wind at ${x.wind} km/h.`,
+      body:'If it holds into the night, gusts will poke at light sleep. Close the window on the wind side or run steady noise to even the field.',cat:'weather'});
+    add(x.humidity>=80&&x.feels>=26, 7, {tag:'Slow down',title:`${x.humidity}% humidity out there.`,
+      body:'Sweat evaporates slowly in air this wet, so cooling stalls. Ease your pace and let a fan move the air for you.',cat:'heat'});
+    add(sun, 5, {tag:'Light budget',title:`${x.city||'Your sky'} gets ${fmtDaylight(x.daylightS)} of light today.`,
+      body:`Sunrise ${fmtM(x.sunriseM)}, sunset ${fmtM(x.sunsetM)}. That is the whole budget. Spend at least ten minutes of it outside.`,cat:'light'});
+    add(sun&&(m>=x.sunsetM+60||(!x.isDay&&m>1020)), 5, {tag:'First light',title:`Tomorrow starts at ${fmtM(x.sunrise2M)}.`,
+      body:'Your first ten minutes of light decide how the whole day runs. Set nothing else. Set that.',cat:'light'});
+    add(x.isClear&&x.isDay, 3, {tag:'Sunlight',title:'Your light is eight minutes old.',
+      body:`The photons landing on ${ov} left the sun eight minutes ago. Step out and catch a few before they bounce away.`,cat:'universal'});
+  }
+  /* clock-only insights, always available */
+  add(m>=780&&m<960, x&&x.isClear?7:6, {win:true, tag:'Beat the dip',title:'Your dip is on schedule.',
+    body:'Energy sags five to eight hours after waking, by design. Take ten minutes of daylight. It lifts you without borrowing from tonight\'s sleep.',cat:'light'});
+  add(m>=840&&m<1140, 7, {win:true, tag:'Cut caffeine',title:'That coffee has a half-life.',
+    body:'Caffeine takes about six hours to halve, so a late-afternoon cup is still working your receptors at midnight. Make the next one your last.',cat:'sleep'});
+  add(m>=1320, 8, {win:true, tag:'Head to bed',title:'Your wind-down window is open.',
+    body:'Core temperature starts its dive about two hours before natural sleep. Head toward bed while the drop is on your side.',cat:'sleep'});
+  add(true, 4, {tag:'Your heart',title:'100,000 beats a day.',
+    body:`${N?N+', your':'Your'} heart beats about 100,000 times a day, and you feel almost none of them. Sit still for ten of them and listen. Something on your finger soon will.`,cat:'universal'});
+  add(true, 4, {tag:'Breathe',title:'22,000 breaths, nearly all automatic.',
+    body:'Take six of them slowly, on purpose, longer out than in. It is the fastest lever you own on stress.',cat:'universal'});
+  add(true, 4, {tag:'Deep sleep',title:'Your brain rinses itself at night.',
+    body:'In deep sleep, fluid flushes the metabolic waste of the day. Most of that clean-up happens while you are under. Protect the deep hours.',cat:'universal'});
+  add(true, 3, {tag:'Body clock',title:'Every cell keeps time.',
+    body:'Trillions of clocks, and they all set themselves by morning light and steady meals. Keep both on schedule and everything downstream gets easier.',cat:'universal'});
+  }
+
+  /* pick 2: weight + jitter, max 2 per category, no repeated orb tags */
+  pool.forEach(c=>{ c.score=c.w+(c.win?10:0)+Math.random()*1.5; });
+  pool.sort((a,b)=>b.score-a.score);
+  const catCount={}, usedTags=new Set(cards.map(c=>c.tag));
+  for(const c of pool){
+    if(cards.length>=3) break;
+    if(usedTags.has(c.tag)) continue;
+    catCount[c.cat]=(catCount[c.cat]||0);
+    if(catCount[c.cat]>=2) continue;
+    catCount[c.cat]++; usedTags.add(c.tag);
+    cards.push(c);
+  }
+
+  cards.push({ tag:'Emerald', title:'A new Ultrahuman experience.',
+    body:'Built around what your body is already saying. The sphere arrives soon. Keep an eye on the sky.', cat:'end' });
+  return cards;
+}
+
+/* app-style sentence casing for the orb tags */
+const sentenceCase=t=>t.split('\n').map(l=>{ const s=l.toLowerCase(); return s? s[0].toUpperCase()+s.slice(1):s; }).join('\n');
+
+/* ============================================================
+   ACT 4 — the carousel: the app's sphere, in the browser
+   spring 200/26, 170px per page, fling ×0.16, focus-pull
+   ============================================================ */
+let deck=[], cardEls=[], driver=null, entered=false;
+const PAGE_PX=170;
+
+function Driver(count){
+  const d={ pos:0, target:0, vel:0, count, dragging:false, raf:null, last:null,
+    onPage:null, lastHaptic:0, userRotated:false, hintRAF:null };
+  d.wrapDelta=v=>{ const n=d.count; let r=v%n; if(r>n/2)r-=n; if(r<-n/2)r+=n; return r; };
+  d.centered=()=>((Math.round(d.pos)%d.count)+d.count)%d.count;
+  d.stop=()=>{ if(d.raf)cancelAnimationFrame(d.raf); d.raf=null; d.last=null; };
+  d.begin=()=>{ d.stop(); d.cancelHint(); d.userRotated=true; d.dragging=true; d.vel=0; d.start=d.pos; d.lastHaptic=d.pos; };
+  d.move=dx=>{ const np=d.start-dx/PAGE_PX;
+    if(Math.abs(np-d.lastHaptic)>=0.035){ buzz(3); d.lastHaptic=np; }
+    d.set(np); };
+  d.end=vx=>{ d.dragging=false; const vp=-vx/PAGE_PX; d.vel=vp; d.target=Math.round(d.pos+vp*0.16); d.run(); };
+  d.nudge=dir=>{ d.cancelHint(); d.userRotated=true; d.dragging=false; d.vel=0;
+    d.target=Math.round(d.pos)+dir; d.run(); };
+  d.snap=p=>{ d.stop(); d.vel=0; d.pos=p; d.target=p; layoutCarousel(); };
+  d.set=(v,report=true)=>{ const prev=Math.round(d.pos); d.pos=v; layoutCarousel();
+    if(report&&Math.round(v)!==prev){ buzz(9); if(d.onPage)d.onPage(d.centered()); } };
+  d.run=()=>{ d.stop(); d.last=null;
+    const step=now=>{ const dt=Math.min(1/30, d.last?(now-d.last)/1000:0); d.last=now;
+      if(dt>0){ const F=-200*(d.pos-d.target)-26*d.vel; d.vel+=F*dt; d.set(d.pos+d.vel*dt);
+        if(Math.abs(d.pos-d.target)<0.001&&Math.abs(d.vel)<0.02){ d.vel=0; d.set(d.target); d.normalize(); buzz(6); d.stop(); return; } }
+      d.raf=requestAnimationFrame(step); };
+    d.raf=requestAnimationFrame(step); };
+  d.normalize=()=>{ const n=d.count; const w=d.pos-Math.floor(d.pos/n)*n; d.pos=w; d.target=w; };
+  /* one-time launch peek: out a quarter page and back, so it reads as grabbable */
+  d.playHint=()=>{ if(d.userRotated||reduce) return;
+    const t0=performance.now(), D=1300, base=d.pos; let lastH=base;
+    const tick=now=>{ if(d.userRotated) return;
+      const u=Math.min(1,(now-t0)/D);
+      const np=base+0.25*Math.sin(Math.PI*u);
+      if(Math.abs(np-lastH)>=0.035){ buzz(3); lastH=np; }
+      d.set(np,false);
+      if(u<1) d.hintRAF=requestAnimationFrame(tick); else d.set(base,false); };
+    d.hintRAF=requestAnimationFrame(tick); };
+  d.cancelHint=()=>{ if(d.hintRAF)cancelAnimationFrame(d.hintRAF); d.hintRAF=null; };
+  return d;
+}
+
+function cardRadius(){ return (el('orbWrap').getBoundingClientRect().width/2)*0.92; }
+
+function layoutCarousel(){
+  if(!driver) return;
+  const n=driver.count, R=cardRadius();
+  const radPer=2*Math.PI/n;
+  carouselYaw=driver.pos*radPer;
+  cardEls.forEach((c,i)=>{
+    const delta=driver.wrapDelta(i-driver.pos);
+    const phi=delta*radPer;
+    const depth=Math.cos(phi);
+    if(depth<=-0.08){ c.style.display='none'; return; }
+    c.style.display='';
+    const f=Math.max(0,depth);
+    c.style.transform=`translate(-50%,-50%) translateX(${Math.sin(phi)*R}px) perspective(600px) rotateY(${phi}rad) scale(${0.9+0.1*f})`;
+    c.style.filter=`blur(${(1-f)*5}px)`;
+    c.style.opacity=String(Math.pow(f,0.85));
+    c.style.zIndex=String(Math.round(depth*100));
+    c.classList.toggle('shimmer', f>0.92);
+  });
+}
+
+function enterInsights(){
+  if(entered) return; entered=true;
+  el('cityField').blur(); el('nameField').blur();
+  wxAt=performance.now();
+  setPalette(moodFor(wx));
+  startParticles(wx);
+  startLightning(wx);
+  deck=buildDeck();
+
+  /* the hello card's title lives here, above the rotating insight block */
+  el('greeting').textContent=deck[0].title;
+
+  const holder=el('carousel'); holder.innerHTML='';
+  cardEls=deck.map(c=>{ const d=document.createElement('div'); d.className='tagCard';
+    d.textContent=sentenceCase(c.tag); holder.appendChild(d); return d; });
+  driver=Driver(deck.length);
+  driver.onPage=i=>setInsight(i);
+  layoutCarousel();
+  setInsight(0);
+  showScene('sceneInsights');
+  if(wx){
+    const parts=[ wx.city?wx.city.toUpperCase():null,
+      `${wx.temp}° ${wx.stripDesc.toUpperCase()}`,
+      (wx.isDay&&!wx.polar)?`UV MAX ${wx.uvMax}`:null,
+      wx.polar?null:`SUNSET ${fmtM(wx.sunsetM).toUpperCase()}` ].filter(Boolean);
+    typeStrip(parts.join(' · '));
+  } else {
+    typeStrip('RUNNING ON LOCAL TIME · NO SKY ATTACHED');
+  }
+  setTimeout(()=>{ if(driver&&!driver.userRotated){ driver.playHint(); el('dragHint').classList.add('on'); } },1600);
+
+  bindDrag();
+}
+
+function setInsight(i){
+  const b=el('insightBlock');
+  b.style.opacity='0';
+  setTimeout(()=>{
+    const c=deck[i];
+    el('insightTitle').textContent = c.cat==='hello' ? '' : c.title;   /* hello's title already sits in the greeting */
+    el('insightBody').textContent=c.body;
+    b.style.opacity='1';
+  },160);
+  if(driver&&driver.userRotated) el('dragHint').classList.remove('on');
+}
+
+function bindDrag(){
+  const s=el('dragSurface');
+  if(s._bound) return; s._bound=true;
+  let px=0, lastX=0, lastT=0, velo=0, downAt=0, moved=0, activeId=null;
+  s.addEventListener('pointerdown',e=>{
+    if(activeId!==null) return;                      /* one finger drives the sphere */
+    activeId=e.pointerId;
+    try{ s.setPointerCapture(e.pointerId); }catch(err){}
+    s.classList.add('grabbing');
+    driver.begin(); px=e.clientX; lastX=e.clientX; lastT=performance.now(); velo=0; downAt=lastT; moved=0;
+  });
+  s.addEventListener('pointermove',e=>{
+    if(e.pointerId!==activeId||!driver.dragging) return;
+    const now=performance.now(); const dx=e.clientX-lastX; const dt=Math.max(1,now-lastT);
+    velo=velo*0.7 + (dx/dt*1000)*0.3;
+    lastX=e.clientX; lastT=now;
+    moved=Math.max(moved,Math.abs(e.clientX-px));
+    driver.move(e.clientX-px);
+  });
+  const up=e=>{
+    if(e.pointerId!==activeId) return;
+    activeId=null;
+    if(!driver||!driver.dragging) return;
+    s.classList.remove('grabbing');
+    if(moved<6&&performance.now()-downAt<300){
+      /* a tap: ripple the marble */
+      driver.dragging=false; driver.target=Math.round(driver.pos); driver.run();
+      const uv=toUV(e.clientX,e.clientY); touchX=uv[0]; touchY=uv[1]; rippleT0=performance.now(); buzz(6);
+      return;
+    }
+    driver.end(velo);
+  };
+  s.addEventListener('pointerup',up);
+  s.addEventListener('pointercancel',up);
+  s.addEventListener('keydown',e=>{
+    if(!driver) return;
+    if(e.key==='ArrowRight'){ e.preventDefault(); driver.nudge(1); el('dragHint').classList.remove('on'); }
+    if(e.key==='ArrowLeft'){ e.preventDefault(); driver.nudge(-1); el('dragHint').classList.remove('on'); }
+  });
+}
+
+/* ============================================================
+   weather strip typewriter
+   ============================================================ */
+function typeStrip(text){
+  const n=el('wxStrip'); n.classList.add('on'); n.textContent='';
+  if(reduce){ n.textContent=text; return; }
+  let i=0;
+  const t=setInterval(()=>{ n.textContent=text.slice(0,++i); if(i>=text.length) clearInterval(t); },26);
+}
+
+/* ============================================================
+   PARTICLES — rain and snow live between sky and story
+   ============================================================ */
+let partRAF=null;
+function startParticles(x){
+  if(partRAF){ cancelAnimationFrame(partRAF); partRAF=null; }
+  const canvas=el('particles');
+  if(!x||reduce||(!x.isRain&&!x.isSnow&&!x.isStorm)) return;
+  document.body.classList.add('wx');
+  const ctx=canvas.getContext('2d');
+  const dpr=Math.min(window.devicePixelRatio||1,1.5);
+  const fit=()=>{ canvas.width=innerWidth*dpr; canvas.height=innerHeight*dpr; };
+  fit(); window.addEventListener('resize',fit);
+  const snow=x.isSnow;
+  const count=snow?70:110;
+  const slant=clamp(x.wind/60,0,0.5)*(Math.random()<0.5?-1:1);
+  const P=Array.from({length:count},()=>({
+    x:Math.random()*innerWidth, y:Math.random()*innerHeight,
+    s:snow? 0.4+Math.random()*1.1 : 0.5+Math.random()*0.9,
+    ph:Math.random()*Math.PI*2 }));
+  const step=()=>{
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.save(); ctx.scale(dpr,dpr);
+    for(const p of P){
+      if(snow){
+        p.y+=p.s*0.9; p.x+=Math.sin(p.ph+=0.013)*0.5+slant;
+        ctx.globalAlpha=0.5*p.s; ctx.fillStyle='#EAF4F8';
+        ctx.beginPath(); ctx.arc(p.x,p.y,1.3*p.s,0,7); ctx.fill();
+      }else{
+        p.y+=9*p.s; p.x+=slant*9*p.s;
+        ctx.globalAlpha=0.16+p.s*0.12; ctx.strokeStyle='#BFE3EC'; ctx.lineWidth=p.s;
+        ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x-slant*10,p.y-13*p.s); ctx.stroke();
+      }
+      if(p.y>innerHeight+15){ p.y=-15; p.x=Math.random()*innerWidth; }
+      if(p.x>innerWidth+15) p.x=-14; if(p.x<-15) p.x=innerWidth+14;
+    }
+    ctx.restore();
+    partRAF=requestAnimationFrame(step);
+  };
+  partRAF=requestAnimationFrame(step);
+}
+
+/* lightning for storms: rare double-strobes through orb and sky */
+let boltTimer=null;
+function startLightning(x){
+  if(boltTimer){ clearTimeout(boltTimer); boltTimer=null; }
+  if(!x||!x.isStorm||reduce) return;
+  const strike=()=>{
+    const seq=[[0.9,0],[0,90],[0.65,180],[0,420]];
+    let acc=0;
+    seq.forEach(([v,d])=>{ acc+=d; setTimeout(()=>{ flashLevel=v; },acc); });
+    setTimeout(()=>{ flashLevel=0; },acc+80);
+    buzz([6,60,10]);
+    boltTimer=setTimeout(strike, 6000+Math.random()*9000);
+  };
+  boltTimer=setTimeout(strike, 3500+Math.random()*4000);
+}
+
+/* ============================================================
+   TILT — the world leans with the phone (iOS asks politely)
+   ============================================================ */
+let tiltOn=false;
+function requestTilt(){
+  if(tiltOn) return;
+  const attach=()=>{ tiltOn=true;
+    window.addEventListener('deviceorientation',e=>{
+      if(e.gamma==null) return;
+      ptrX=clamp(e.gamma/28,-1,1)*0.9;
+      ptrY=clamp((e.beta-40)/32,-1,1)*0.7;
+    },{passive:true});
+  };
+  try{
+    if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+      DeviceOrientationEvent.requestPermission().then(r=>{ if(r==='granted') attach(); }).catch(()=>{});
+    } else if('DeviceOrientationEvent' in window){ attach(); }
+  }catch(e){}
+}
+
+/* ============================================================
+   SHARE — 1080×1920 Instagram-story image, dark glass over their sky.
+   "post to instagram" opens the native share sheet with the story
+   PNG (Instagram Stories is a target on phones); "save image"
+   downloads the same asset for posting by hand.
+   ============================================================ */
+el('postBtn').addEventListener('click',()=>shareCard(true));
+el('saveBtn').addEventListener('click',()=>shareCard(false));
+async function storyBlob(){
+  await Promise.all([
+    document.fonts.load('500 22px "JetBrains Mono"'),
+    document.fonts.load('300 30px Geist'),
+    document.fonts.load('400 58px Geist'),
+    document.fonts.load('600 54px Geist'),
+  ]).catch(()=>{});
+  return composeStory(deck[driver?driver.centered():0]);
+}
+async function shareCard(toInsta){
+  if(!deck.length) return;
+  const btn=toInsta?el('postBtn'):el('saveBtn');
+  const old=btn.textContent; btn.textContent='preparing…';
+  setShareNote('');
+  try{
+    const blob=await storyBlob();
+    const file=new File([blob],'emerald-story.png',{type:'image/png'});
+    if(toInsta && navigator.canShare && navigator.canShare({files:[file]})){
+      try{
+        await navigator.share({files:[file], title:'Emerald', text:'A new Ultrahuman experience. Coming soon.'});
+        setShareNote('SENT. STORY-SIZED AND READY.');
+      }
+      catch(err){ if(err&&err.name!=='AbortError'){ downloadBlob(blob); setShareNote('SAVED INSTEAD. POST IT FROM YOUR PHOTOS.'); } }
+    } else {
+      downloadBlob(blob);
+      setShareNote(toInsta?'SAVED. 1080×1920, DROP IT STRAIGHT INTO YOUR STORY.':'SAVED. STORY-SIZED AT 1080×1920.');
+    }
+  }catch(err){ console.error(err); }
+  btn.textContent=old;
+}
+function setShareNote(t){ el('shareNote').textContent=t; }
+function downloadBlob(blob){
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download='emerald-story.png'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+function composeStory(card){
+  const W=1080,H=1920,c=document.createElement('canvas'); c.width=W; c.height=H;
+  const x=c.getContext('2d');
+  /* their sky as the backdrop */
+  if(bgCtx){ try{ x.drawImage(el('bg'),0,0,W,H); }catch(e){} }
+  else { const g=x.createLinearGradient(0,0,W,H); g.addColorStop(0,'#10254A'); g.addColorStop(.5,'#00858A'); g.addColorStop(1,'#0D172E'); x.fillStyle=g; x.fillRect(0,0,W,H); }
+  x.fillStyle='rgba(3,7,16,.45)'; x.fillRect(0,0,W,H);
+
+  /* dark glass card */
+  const cw=800, ch=1100, cx=(W-cw)/2, cy=(H-ch)/2;
+  roundRect(x,cx,cy,cw,ch,48); x.fillStyle='rgba(6,12,24,.55)'; x.fill();
+  x.strokeStyle='rgba(255,255,255,.22)'; x.lineWidth=2; x.stroke();
+
+  const mid=W/2; x.textAlign='center'; x.textBaseline='alphabetic';
+  const spacedWidth=(t,ls)=>{ let tot=0; for(const k of t) tot+=x.measureText(k).width+ls; return tot-ls; };
+  const spaced=(t,y,f,col,ls)=>{ x.font=f; x.fillStyle=col;
+    let sx=mid-spacedWidth(t,ls)/2; x.textAlign='left';
+    for(const k of t){ x.fillText(k,sx,y); sx+=x.measureText(k).width+ls; }
+    x.textAlign='center'; };
+  /* letter-spaced line that always fits: relax spacing, then shrink, then truncate */
+  const spacedFit=(t,y,size,col,ls,maxW)=>{
+    for(const [s,l] of [[size,ls],[size,2],[size-3,2],[size-5,1]]){
+      x.font=`500 ${s}px "JetBrains Mono"`;
+      if(spacedWidth(t,l)<=maxW){ spaced(t,y,x.font,col,l); return; }
+    }
+    x.font=`500 ${size-5}px "JetBrains Mono"`;
+    while(t.length>4&&spacedWidth(t+'…',1)>maxW) t=t.slice(0,-1);
+    spaced(t+'…',y,x.font,col,1);
+  };
+
+  spaced('A NEW ULTRAHUMAN EXPERIENCE', cy+96, '500 22px "JetBrains Mono"', 'rgba(255,255,255,.55)', 5);
+
+  /* the sphere */
+  const D=230, oy=cy+150;
+  if(orbCtx){ try{ x.drawImage(el('orb'), mid-D/2, oy, D, D); }catch(e){} }
+
+  /* tag */
+  spacedFit(card.tag.toUpperCase(), oy+D+76, 24, 'rgba(123,216,219,.9)', 7, 700);
+
+  /* title: serif italic hero, wrapped and clamped */
+  x.font='400 58px Geist';
+  const titleLines=wrapLines(x, card.title, 660, 3);
+  x.fillStyle='#FFFFFF';
+  let fy=oy+D+170;
+  titleLines.forEach(l=>{ x.fillText(l, mid, fy); fy+=70; });
+
+  /* body, clamped so it never runs into the stamp */
+  x.font='300 30px Geist'; x.fillStyle='rgba(255,255,255,.78)';
+  const bodyMax=titleLines.length>2?3:4;
+  fy+=24;
+  wrapLines(x, card.body, 640, bodyMax).forEach(l=>{ x.fillText(l, mid, fy); fy+=44; });
+
+  /* stamp */
+  const stamp=[ userName?userName.toUpperCase():null,
+    wx&&wx.city?`${wx.city.toUpperCase()} ${wx.temp}°`:(wx?`${wx.temp}°`:null),
+    wx?wx.stripDesc.toUpperCase():null ].filter(Boolean).join(' · ');
+  if(stamp) spacedFit(stamp, cy+ch-170, 20, 'rgba(255,255,255,.45)', 4, 700);
+
+  x.font='600 54px Geist'; x.fillStyle='#FFFFFF'; x.fillText('EMERALD', mid, cy+ch-96);
+  spaced('COMING SOON', cy+ch-52, '500 20px "JetBrains Mono"', 'rgba(255,255,255,.5)', 8);
+
+  return new Promise(res=>c.toBlob(bl=>res(bl),'image/png'));
+}
+/* wrap into at most maxLines, ellipsizing the last line if the text keeps going */
+function wrapLines(x,text,maxW,maxLines){
+  const words=text.split(' '); const lines=[]; let line='';
+  for(let i=0;i<words.length;i++){
+    const test=line?line+' '+words[i]:words[i];
+    if(x.measureText(test).width>maxW&&line){
+      lines.push(line); line=words[i];
+      if(lines.length===maxLines){
+        let last=lines[maxLines-1];
+        while(last.length&&x.measureText(last+'…').width>maxW) last=last.slice(0,-1);
+        lines[maxLines-1]=last+'…';
+        return lines;
+      }
+    } else line=test;
+  }
+  if(line) lines.push(line);
+  return lines;
+}
+function roundRect(x,px,py,w,h,r){ x.beginPath(); x.moveTo(px+r,py); x.arcTo(px+w,py,px+w,py+h,r);
+  x.arcTo(px+w,py+h,px,py+h,r); x.arcTo(px,py+h,px,py,r); x.arcTo(px,py,px+w,py,r); x.closePath(); }
+
+/* keep layout honest through resizes */
+window.addEventListener('resize',()=>{ if(driver) layoutCarousel(); });
+</script>
+</body>
+</html>

@@ -924,68 +924,68 @@ function buildDeck(){
 
   if(nightGate){
     /* the night gate outranks everything, like the app */
-    pool.push({w:10,tag:'Sleep',title:`It is ${fmtM(m)}${x&&x.city?' in '+x.city:''}.`,
-      body:'Nothing on this screen beats sleep at this hour. Put the phone down and let the night work.',cat:'sleep'});
-    pool.push({w:6,tag:'Breathe',title:'Take six slow breaths.',
-      body:'Longer out than in. The fastest lever you own on a racing mind, and it works lying down.',cat:'universal'});
-    pool.push({w:5,tag:'Deep sleep',title:'Your brain rinses itself at night.',
-      body:'Fluid flushes the day\'s waste while you are under. Go get under.',cat:'universal'});
+    pool.push({w:10,tag:'Head to bed',title:'Turn in as soon as you can.',
+      body:`It is ${fmtM(m)}. The sooner you get to bed, the more of the night you hold onto.`,cat:'sleep'});
+    pool.push({w:6,tag:'Wind down',title:'Let go of tension.',
+      body:'Lie back, unclench your jaw and shoulders, and breathe slowly so the day\'s stress eases off and you drift off sooner.',cat:'universal'});
+    pool.push({w:5,tag:'Early night',title:'Aim for an earlier night tomorrow.',
+      body:'You are up later than usual. An earlier night helps you get back on your normal schedule.',cat:'universal'});
   } else {
   if(x){
-    add(morning&&!x.isRain&&!x.isOvercast, 9, {win:true, tag:'First light',title:'Catch the first hours.',
-      body:`Morning light runs in the thousands of lux. Your brightest room manages a few hundred. Ten minutes outside before ${fmtM(x.sunriseM+150)} sets the clock everything else follows.`,cat:'light'});
-    add(morning&&x.isOvercast, 9, {win:true, tag:'Get light',title:'Grey still counts.',
-      body:'The sky still beats your brightest room by ten times. Step out.',cat:'light'});
-    add(morning&&x.isRain, 8, {win:true, tag:'Get light',title:'Rain light still works.',
-      body:'Even through rain, the sky out-brightens your ceiling many times over. A doorway or an umbrella still starts your clock.',cat:'light'});
-    add(sun&&m>=x.sunsetM-75&&m<x.sunsetM-4&&!x.isRain&&!x.isStorm&&!x.isFog&&!x.isSnow, 10, {win:true, tag:'Golden hour',title:'The softest light is leaving.',
-      body:`Golden hour ends at ${fmtM(x.sunsetM)}. A slow walk in it lowers stress and marks the end of your day.`,cat:'light'});
-    add(sun&&m>=x.sunsetM&&m<=1380, 8, {win:true, tag:'Wind down',title:`The sun clocked out at ${fmtM(x.sunsetM)}.`,
-      body:"Every bright screen from here argues it's midday. Dim the room.",cat:'sleep'});
-    add(sun&&x.feels>=28&&m>=x.sunsetM&&m<=1439, 9, {tag:'Cool down',title:`Tonight is holding ${x.temp}°.`,
-      body:'Your core has to drop about 1°C to let sleep in. Cool the room and give the drop a head start.',cat:'heat'});
-    add(x.feels>=32&&x.isDay, 8, {tag:'Hydrate',title:`It feels like ${x.feels}° out there.`,
-      body:'Hard effort in this heat can cost a litre of water an hour. Drink before you feel thirsty. Thirst reports late.',cat:'heat'});
-    add(x.temp<=5&&m>=1140, 8, {tag:'Warm up',title:'Socks are sleep technology.',
-      body:'Warm feet open the vessels that release core heat. Sleep follows the drop.',cat:'sleep'});
-    add(x.temp<=5&&x.isDay&&m<1140, 6, {tag:'Cold walk',title:'A cold walk pays twice.',
-      body:`${x.temp}° air wakes brown fat and sharpens attention for an hour after. Bundle up, step out, come back warm.`,cat:'weather'});
-    add(x.isRain&&!x.isStorm&&(m>=1020||!x.isDay), 8, {tag:'Rain sound',title:'Rain is a sleep machine.',
-      body:'Steady rain is natural pink noise. It masks the spikes that fragment sleep. Keep it within earshot tonight.',cat:'weather'});
-    add(x.isStorm, 9, {tag:'Go gentle',title:'Storm air is heavy air.',
-      body:'Storms ride a barometric dip, and some bodies read it as a dull head. Plan a gentler day and keep water close.',cat:'weather'});
-    add(x.isSnow&&x.isDay, 9, {tag:'Snow light',title:'Snow light is a gift.',
-      body:'Fresh snow nearly doubles the daylight reaching your eyes. A short walk out there is a strong clock signal.',cat:'weather'});
-    add(x.isFog&&x.isDay, 8, {tag:'Get light',title:'The sky is running late.',
-      body:'Fog delays your light dose. It does not cancel it. Twenty minutes outside still tells your clock the day began.',cat:'light'});
-    add(x.uv>=7&&x.isDay, 8, {tag:'Find shade',title:`UV is running at ${x.uv}${x.city?' over '+x.city:''}.`,
-      body:'Take your daylight early or in open shade. The clock benefit stays. The burn does not.',cat:'weather'});
-    add(x.wind>=25, 6, {tag:'Wind',title:`Wind at ${x.wind} km/h.`,
-      body:'If it holds into the night, gusts will poke at light sleep. Close the window on the wind side.',cat:'weather'});
-    add(x.humidity>=80&&x.feels>=26, 7, {tag:'Slow down',title:`${x.humidity}% humidity out there.`,
-      body:'Sweat evaporates slowly in air this wet, so cooling stalls. Ease your pace and let a fan move the air.',cat:'heat'});
-    add(sun, 5, {tag:'Light budget',title:`${x.city||'Your sky'} gets ${fmtDaylight(x.daylightS)} of light today.`,
-      body:`Sunrise ${fmtM(x.sunriseM)}, sunset ${fmtM(x.sunsetM)}. That is the whole budget. Spend ten minutes of it outside.`,cat:'light'});
-    add(sun&&(m>=x.sunsetM+60||(!x.isDay&&m>1020)), 5, {tag:'First light',title:`Tomorrow starts at ${fmtM(x.sunrise2M)}.`,
-      body:'Your first ten minutes of light decide how the day runs. Set nothing else. Set that.',cat:'light'});
-    add(x.isClear&&x.isDay, 3, {tag:'Sunlight',title:'Your light is eight minutes old.',
-      body:'The photons landing on you left the sun eight minutes ago. Catch a few before they bounce away.',cat:'universal'});
+    add(morning&&!x.isRain&&!x.isOvercast, 9, {win:true, tag:'Get light',title:'Catch morning daylight early.',
+      body:'Step outside for a few minutes soon after waking. Morning light sets your body clock so you feel alert today and fall asleep easier.',cat:'light'});
+    add(morning&&x.isOvercast, 9, {win:true, tag:'Get light',title:'Get outside, grey or not.',
+      body:'Even under heavy cloud, a few minutes of outdoor light early still sets your body clock. You\'ll feel steadier today and drift off more easily.',cat:'light'});
+    add(morning&&x.isRain, 8, {win:true, tag:'Get light',title:'Get outside, rain or not.',
+      body:'Even through rain, a few minutes of outdoor light early still sets your body clock. A doorway or an umbrella is enough.',cat:'light'});
+    add(sun&&m>=x.sunsetM-75&&m<x.sunsetM-4&&!x.isRain&&!x.isStorm&&!x.isFog&&!x.isSnow, 10, {win:true, tag:'Golden hour',title:'Golden hour is here.',
+      body:`The day's softest light is out until ${fmtM(x.sunsetM)}. Take a short walk in it to reset your body clock and lift your mood.`,cat:'light'});
+    add(sun&&m>=x.sunsetM&&m<=1380, 8, {win:true, tag:'Wind down',title:'Switch screens to night mode.',
+      body:`The sun set at ${fmtM(x.sunsetM)}. Screens this late keep your brain alert, so put your phone on night mode and set it aside about an hour before bed.`,cat:'sleep'});
+    add(sun&&x.feels>=28&&m>=x.sunsetM&&m<=1439, 9, {tag:'Cool down',title:'Cool the room before bed.',
+      body:`Tonight is holding ${x.temp}°, and a warm room breaks up sleep. A cooler room helps you sleep deeper.`,cat:'heat'});
+    add(x.feels>=32&&x.isDay, 8, {tag:'Hydrate',title:'Drink before you feel thirsty.',
+      body:`It feels like ${x.feels}° out there, and heat pulls fluid out of you faster than thirst reports it. Keep water close through the day.`,cat:'heat'});
+    add(x.temp<=5&&m>=1140, 8, {tag:'Warm up',title:'Wear socks to bed.',
+      body:`A ${x.temp}° night can leave the room cold enough to break your sleep. Slip on socks before bed so cold feet don't pull you awake.`,cat:'sleep'});
+    add(x.temp<=5&&x.isDay&&m<1140, 6, {tag:'Move',title:'Take a short walk out.',
+      body:`${x.temp}° air wakes you up and sharpens focus for the hour after. Bundle up, keep it short, and come back warm.`,cat:'weather'});
+    add(x.isRain&&!x.isStorm&&(m>=1020||!x.isDay), 8, {tag:'Unwind',title:'Let the rain in tonight.',
+      body:'Steady rain masks the sounds that break up sleep. Leave a window cracked and let it settle you.',cat:'weather'});
+    add(x.isStorm, 9, {tag:'Go easy',title:'Keep today gentle.',
+      body:'Storm pressure leaves some people heavy-headed and low on energy. Plan a lighter day and keep water close.',cat:'weather'});
+    add(x.isSnow&&x.isDay, 9, {tag:'Get light',title:'Get out in the snow light.',
+      body:'Snow throws daylight back at you, so a few minutes out there is a strong signal for your body clock.',cat:'weather'});
+    add(x.isFog&&x.isDay, 8, {tag:'Get light',title:'The light still gets through.',
+      body:'Fog delays your morning light, it does not cancel it. A few minutes outside still tells your body clock the day began.',cat:'light'});
+    add(x.uv>=7&&x.isDay, 8, {tag:'Beat the dip',title:'Take a shaded walk.',
+      body:`UV is running at ${x.uv}. 10 minutes of walking in daylight still wakes you up more than caffeine, so pick a shady route and sip water.`,cat:'weather'});
+    add(x.wind>=25, 6, {tag:'Protect sleep',title:'Close the window on the wind side.',
+      body:`Wind at ${x.wind} km/h can fragment light sleep if it holds into the night. Close the window on the wind side or run steady noise to even it out.`,cat:'weather'});
+    add(x.humidity>=80&&x.feels>=26, 7, {tag:'Ease up',title:'Keep the effort easy.',
+      body:`Air at ${x.humidity}% humidity stops sweat from cooling you, so heat builds faster than usual. Take today at an easy pace and sip water.`,cat:'heat'});
+    add(sun, 5, {tag:'Get light',title:`You get ${fmtDaylight(x.daylightS)} of daylight today.`,
+      body:`Sunrise ${fmtM(x.sunriseM)}, sunset ${fmtM(x.sunsetM)}. Take a few minutes of it early and your body clock sets itself for the night.`,cat:'light'});
+    add(sun&&(m>=x.sunsetM+60||(!x.isDay&&m>1020)), 5, {tag:'Get light',title:`Tomorrow starts at ${fmtM(x.sunrise2M)}.`,
+      body:'Step outside for a few minutes soon after you wake. Morning light sets your body clock so you feel alert all day.',cat:'light'});
+    add(x.isClear&&x.isDay, 3, {tag:'Get light',title:'Step into the sun for a minute.',
+      body:'The light reaching you left the sun eight minutes ago. A few minutes of it early sets your body clock for the whole day.',cat:'universal'});
   }
   /* clock-only insights, always available */
-  add(m>=780&&m<960, x&&x.isClear?7:6, {win:true, tag:'Beat the dip',title:'Your dip is on schedule.',
-    body:'Ten minutes of daylight lifts you without borrowing from tonight\'s sleep.',cat:'light'});
-  add(m>=840&&m<1140, 7, {win:true, tag:'Cut caffeine',title:'Make this coffee your last.',
-    body:'Caffeine halves in six hours. A late cup is still working at midnight.',cat:'sleep'});
-  add(m>=1320, 8, {win:true, tag:'Head to bed',title:'Your wind-down window is open.',
-    body:'Core temperature dives about two hours before natural sleep. Head to bed while the drop is on your side.',cat:'sleep'});
-  add(true, 4, {tag:'Your heart',title:'100,000 beats a day.',
+  add(m>=780&&m<960, x&&x.isClear?7:6, {win:true, tag:'Beat the dip',title:'Beat the afternoon dip.',
+    body:'This is your usual afternoon dip. 10 minutes of daylight and a short walk lift your energy more than caffeine.',cat:'light'});
+  add(m>=840&&m<1140, 7, {win:true, tag:'Cut caffeine',title:'Hold off on caffeine.',
+    body:'You\'re at the point where caffeine can cut into your sleep. Hold off from here and you\'ll fall asleep more easily.',cat:'sleep'});
+  add(m>=1320, 8, {win:true, tag:'Wind down',title:'Start winding down.',
+    body:'Bedtime is close. Slow your breathing and set your phone aside so you settle and fall asleep faster.',cat:'sleep'});
+  add(true, 4, {tag:'Lower heart rate',title:'100,000 beats a day.',
     body:`${N?N+', your':'Your'} heart beats about 100,000 times a day and you feel almost none of them. Something on your finger soon will.`,cat:'universal'});
-  add(true, 4, {tag:'Breathe',title:'22,000 breaths, nearly all automatic.',
-    body:'Take six slowly, on purpose, longer out than in. The fastest lever you own on stress.',cat:'universal'});
-  add(true, 4, {tag:'Deep sleep',title:'Your brain rinses itself at night.',
-    body:'Fluid flushes the day\'s metabolic waste while you are under. Protect the deep hours.',cat:'universal'});
-  add(true, 3, {tag:'Body clock',title:'Every cell keeps time.',
-    body:'Trillions of clocks, all set by morning light and steady meals. Keep both on schedule and the rest gets easier.',cat:'universal'});
+  add(true, 4, {tag:'Recharge',title:'Slow your breathing for 5 minutes.',
+    body:'You breathe 22,000 times a day and almost none of them on purpose. Six slow breaths, longer out than in, eases the load on your system.',cat:'universal'});
+  add(true, 4, {tag:'Protect sleep',title:'Protect the deep hours.',
+    body:'In deep sleep, your brain clears out waste it cannot reach while you are awake. Get to bed on time and you get more of it.',cat:'universal'});
+  add(true, 3, {tag:'Reset clock',title:'Keep your clock steady.',
+    body:'Every cell in your body keeps its own clock, and most are set by morning light and steady meal times. Hold both and sleep comes easier.',cat:'universal'});
   }
 
   /* pick 2: weight + jitter, max 2 per category, no repeated orb tags */
